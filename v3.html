@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProTrade AI - Ultimate Dashboard</title>
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        :root {
+            --bg-dark: #131722;
+            --bg-panel: #1e222d;
+            --border: #2a2e39;
+            --text: #d1d4dc;
+            --accent: #2962ff;
+            --green: #089981;
+            --red: #f23645;
+        }
+        body { margin: 0; background: var(--bg-dark); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        
+        aside { width: 320px; background: var(--bg-panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+        main { flex: 1; display: flex; flex-direction: column; position: relative; }
+        
+        .sidebar-header { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 800; font-size: 1.2rem; color: var(--text); letter-spacing: 1px; }
+        .sidebar-header span { color: var(--accent); }
+        
+        .control-group { padding: 15px; border-bottom: 1px solid var(--border); }
+        .control-group h3 { margin: 0 0 12px 0; font-size: 0.8rem; color: #787b86; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        label { display: block; font-size: 0.8rem; margin-bottom: 5px; color: var(--text); }
+        select, input { width: 100%; background: #2a2e39; border: 1px solid #363a45; color: white; padding: 8px; border-radius: 4px; margin-bottom: 12px; font-size: 0.9rem; }
+        select:focus, input:focus { border-color: var(--accent); outline: none; }
+        
+        button { width: 100%; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: 0.2s; margin-top: 5px; }
+        .btn-run { background: var(--accent); color: white; }
+        .btn-run:hover { background: #1e54e6; }
+        .btn-opt { background: #673ab7; color: white; margin-top: 10px; }
+        .btn-opt:hover { background: #5e35b1; }
+
+        /* Chart & Stats */
+        #chart { flex: 1; width: 100%; }
+        .stats-panel { height: 70px; background: var(--bg-panel); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-around; }
+        .stat-box { text-align: center; }
+        .stat-val { font-size: 1.2rem; font-weight: bold; margin-top: 2px; }
+        .profit { color: var(--green); }
+        .loss { color: var(--red); }
+
+        #loading { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(19, 23, 34, 0.9); z-index: 100; display: flex; align-items: center; justify-content: center; flex-direction: column; display: none; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #363a45; border-top: 3px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .param-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center; }
+        .param-grid input { margin-bottom: 0; }
+    </style>
+</head>
+<body>
+
+<aside>
+    <div class="sidebar-header">ProTrade <span>AI</span></div>
+    
+    <div class="control-group">
+        <h3>Piyasa Verileri</h3>
+        <label>Borsa Tipi</label>
+        <select id="market">
+            <option value="CRYPTO">Kripto (Canlı)</option>
+            <option value="BIST">BIST 30 (Simülasyon)</option>
+            <option value="US">ABD (Simülasyon)</option>
+            <option value="COMMODITY">Emtia (Simülasyon)</option>
+        </select>
+        <label>Varlık</label>
+        <select id="symbol"></select>
+        <label>Zaman Dilimi</label>
+        <select id="interval">
+            <option value="15m">15 Dakika</option>
+            <option value="1h">1 Saat</option>
+            <option value="4h" selected>4 Saat</option>
+            <option value="1d">1 Gün</option>
+        </select>
+    </div>
+
+    <div class="control-group">
+        <h3>Strateji Yönetimi</h3>
+        <label>Strateji Seç</label>
+        <select id="strategy">
+            <option value="supertrend">SuperTrend</option>
+            <option value="turtle">Turtle Trading</option>
+            <option value="rsi">RSI Reversal</option>
+            <option value="macd">MACD Cross</option>
+            <option value="ema">EMA Cross</option>
+            <option value="bollinger">Bollinger Bands</option>
+        </select>
+
+        <div id="params-container"></div>
+    </div>
+
+    <div class="control-group">
+        <h3>Backtest Motoru</h3>
+        <label>Başlangıç Sermayesi ($)</label>
+        <input type="number" id="balance" value="1000">
+        
+        <button class="btn-run" onclick="App.start()">Grafiği Yenile</button>
+        <button class="btn-opt" onclick="Optimizer.run()">✨ AI Optimize Et</button>
+        <div id="opt-status" style="font-size: 0.75rem; color: #aaa; margin-top: 8px; text-align: center; min-height: 15px;"></div>
+    </div>
+</aside>
+
+<main>
+    <div id="loading">
+        <div class="spinner"></div>
+        <div style="margin-top: 15px; font-size: 0.9rem;" id="loading-text">Veriler Analiz Ediliyor...</div>
+    </div>
+    <div id="chart"></div>
+    <div class="stats-panel">
+        <div class="stat-box">
+            <div style="font-size:0.75rem; color:#787b86">Cüzdan</div>
+            <div class="stat-val" id="res-balance">---</div>
+        </div>
+        <div class="stat-box">
+            <div style="font-size:0.75rem; color:#787b86">Net Kâr/Zarar</div>
+            <div class="stat-val" id="res-pnl">---</div>
+        </div>
+        <div class="stat-box">
+            <div style="font-size:0.75rem; color:#787b86">Başarı Oranı</div>
+            <div class="stat-val" id="res-win">---</div>
+        </div>
+        <div class="stat-box">
+            <div style="font-size:0.75rem; color:#787b86">İşlem Sayısı</div>
+            <div class="stat-val" id="res-trades">---</div>
+        </div>
+    </div>
+</main>
+
+<script>
+/**
+ * --- SEEDED RANDOM (Fix for Graphs changing randomly) ---
+ */
+class Random {
+    constructor(seed) {
+        this.seed = seed;
+    }
+    // Basit bir PRNG (Pseudo Random Number Generator)
+    next() {
+        var x = Math.sin(this.seed++) * 10000;
+        return x - Math.floor(x);
+    }
+    // Range
+    range(min, max) {
+        return min + (this.next() * (max - min));
+    }
+}
+
+/**
+ * --- ASSETS ---
+ */
+const ASSETS = {
+    CRYPTO: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOGEUSDT', 'TRXUSDT', 'MATICUSDT', 'LTCUSDT'],
+    BIST: ['THYAO', 'ASELS', 'GARAN', 'AKBNK', 'ISCTR', 'KCHOL', 'SISE', 'EREGL', 'SAHOL', 'TUPRS', 'BIMAS', 'YKBNK', 'HALKB', 'VAKBN', 'PETKM', 'TCELL', 'ARCLK', 'FROTO', 'EKGYO', 'TOASO', 'SASA', 'HEKTS', 'ENKAI', 'MGROS', 'KOZAL', 'ODAS', 'ALARK', 'GUBRF', 'TKFEN', 'VESTL'],
+    US: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'BRK.B', 'UNH', 'JNJ', 'XOM', 'JPM', 'V', 'PG', 'MA', 'HD', 'CVX', 'ABBV', 'MRK', 'PEP', 'KO', 'LLY', 'BAC', 'AVGO', 'TMO', 'COST', 'DIS', 'PFE', 'CSCO', 'WMT'],
+    COMMODITY: ['GOLD', 'SILVER', 'PLATINUM', 'PALLADIUM', 'COPPER', 'OIL_WTI', 'OIL_BRENT', 'NAT_GAS']
+};
+
+/**
+ * --- INDICATOR ENGINE ---
+ */
+const Indicators = {
+    ema: (data, period) => {
+        let results = [];
+        let k = 2 / (period + 1);
+        let ema = data[0].close;
+        for (let i = 0; i < data.length; i++) {
+            if (i < period) {
+                let sum = 0; for(let j=0; j<=i; j++) sum += data[j].close;
+                ema = sum / (i+1);
+            } else {
+                ema = data[i].close * k + ema * (1 - k);
+            }
+            results.push(ema);
+        }
+        return results;
+    },
+
+    rsi: (data, period) => {
+        let results = [];
+        let gains = 0, losses = 0;
+        for (let i = 0; i < data.length; i++) {
+            if(i === 0) { results.push(50); continue; }
+            let change = data[i].close - data[i-1].close;
+            let gain = change > 0 ? change : 0;
+            let loss = change < 0 ? -change : 0;
+            
+            if (i < period) {
+                gains += gain; losses += loss;
+                results.push(50);
+            } else if (i === period) {
+                gains /= period; losses /= period;
+                let rs = gains / losses;
+                results.push(100 - (100 / (1 + rs)));
+            } else {
+                gains = (gains * (period - 1) + gain) / period;
+                losses = (losses * (period - 1) + loss) / period;
+                let rs = gains / losses;
+                results.push(losses === 0 ? 100 : 100 - (100 / (1 + rs)));
+            }
+        }
+        return results;
+    },
+
+    // Fixed SuperTrend Logic
+    superTrend: (data, period, factor) => {
+        let st = [];
+        // ATR Calculation
+        let tr = [];
+        for(let i=0; i<data.length; i++) {
+            if(i===0) tr.push(data[i].high - data[i].low);
+            else tr.push(Math.max(data[i].high - data[i].low, Math.abs(data[i].high - data[i-1].close), Math.abs(data[i].low - data[i-1].close)));
+        }
+        let atr = [];
+        let sum = 0;
+        for(let i=0; i<period; i++) sum += tr[i];
+        atr[period-1] = sum / period;
+        for(let i=period; i<data.length; i++) atr[i] = (atr[i-1]*(period-1) + tr[i])/period;
+
+        // Bands
+        for(let i=0; i<data.length; i++) {
+            if(!atr[i]) { st.push({trend: 1, signal: null}); continue; }
+            
+            let hl2 = (data[i].high + data[i].low) / 2;
+            let upper = hl2 + factor * atr[i];
+            let lower = hl2 - factor * atr[i];
+            
+            let prev = st[i-1] || { upper: upper, lower: lower, trend: 1 };
+            
+            let finalUpper = (upper < prev.upper || data[i-1].close > prev.upper) ? upper : prev.upper;
+            let finalLower = (lower > prev.lower || data[i-1].close < prev.lower) ? lower : prev.lower;
+
+            let trend = prev.trend;
+            let signal = null;
+
+            if(trend === 1 && data[i].close < finalLower) {
+                trend = -1; signal = 'SHORT';
+            } else if(trend === -1 && data[i].close > finalUpper) {
+                trend = 1; signal = 'LONG';
+            }
+
+            st.push({
+                trend: trend,
+                upper: finalUpper,
+                lower: finalLower,
+                signal: signal
+            });
+        }
+        return st;
+    },
+
+    donchian: (data, period) => {
+        let res = [];
+        for(let i=0; i<data.length; i++) {
+            if(i < period) { res.push({upper: null, lower: null}); continue; }
+            let slice = data.slice(i-period, i); // Exclude current
+            let upper = Math.max(...slice.map(d => d.high));
+            let lower = Math.min(...slice.map(d => d.low));
+            res.push({ upper, lower });
+        }
+        return res;
+    },
+
+    macd: (data, fast, slow, sig) => {
+        const fastEMA = Indicators.ema(data, fast);
+        const slowEMA = Indicators.ema(data, slow);
+        let macd = data.map((d, i) => fastEMA[i] - slowEMA[i]);
+        // Signal is EMA of MACD
+        // Calculate manually for simple array
+        let signal = [];
+        let k = 2 / (sig + 1);
+        let val = macd[0];
+        for(let i=0; i<macd.length; i++) {
+            val = macd[i] * k + val * (1-k);
+            signal.push(val);
+        }
+        return { macd, signal };
+    },
+
+    bollinger: (data, period, std) => {
+        let bands = [];
+        for(let i=0; i<data.length; i++) {
+            if(i < period) { bands.push({}); continue; }
+            let slice = data.slice(i-period+1, i+1);
+            let sum = slice.reduce((a,b) => a + b.close, 0);
+            let avg = sum / period;
+            let sqDiff = slice.map(d => Math.pow(d.close - avg, 2)).reduce((a,b) => a+b, 0);
+            let dev = Math.sqrt(sqDiff / period);
+            bands.push({ upper: avg + dev*std, lower: avg - dev*std });
+        }
+        return bands;
+    }
+};
+
+/**
+ * --- APP CONTROLLER ---
+ */
+const App = {
+    chart: null,
+    series: null,
+    currentData: [],
+    
+    params: {
+        supertrend: [
+            { id: 'st_period', label: 'ATR Period', type: 'number', val: 10 },
+            { id: 'st_factor', label: 'Factor', type: 'number', val: 3, step: 0.1 }
+        ],
+        turtle: [
+            { id: 'tt_in', label: 'Entry Period', type: 'number', val: 20 },
+            { id: 'tt_out', label: 'Exit Period', type: 'number', val: 10 }
+        ],
+        rsi: [
+            { id: 'rsi_p', label: 'Length', type: 'number', val: 14 },
+            { id: 'rsi_ob', label: 'Overbought', type: 'number', val: 70 },
+            { id: 'rsi_os', label: 'Oversold', type: 'number', val: 30 }
+        ],
+        macd: [
+            { id: 'm_fast', label: 'Fast', type: 'number', val: 12 },
+            { id: 'm_slow', label: 'Slow', type: 'number', val: 26 },
+            { id: 'm_sig', label: 'Signal', type: 'number', val: 9 }
+        ],
+        ema: [
+            { id: 'e_fast', label: 'Fast EMA', type: 'number', val: 9 },
+            { id: 'e_slow', label: 'Slow EMA', type: 'number', val: 21 }
+        ],
+        bollinger: [
+            { id: 'bb_p', label: 'Period', type: 'number', val: 20 },
+            { id: 'bb_std', label: 'StdDev', type: 'number', val: 2 }
+        ]
+    },
+
+    init: () => {
+        App.initChart();
+        App.populateSelects();
+        App.renderParams();
+        
+        document.getElementById('market').addEventListener('change', (e) => App.populateSymbol(e.target.value));
+        document.getElementById('strategy').addEventListener('change', App.renderParams);
+        
+        App.start();
+    },
+
+    initChart: () => {
+        const el = document.getElementById('chart');
+        App.chart = LightweightCharts.createChart(el, {
+            layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
+            grid: { vertLines: { color: '#2a2e39' }, horzLines: { color: '#2a2e39' } },
+            timeScale: { borderColor: '#2a2e39', timeVisible: true },
+            rightPriceScale: { borderColor: '#2a2e39' },
+        });
+        App.series = App.chart.addCandlestickSeries({
+            upColor: '#089981', downColor: '#f23645', borderVisible: false, wickUpColor: '#089981', wickDownColor: '#f23645'
+        });
+        new ResizeObserver(() => App.chart.resize(el.clientWidth, el.clientHeight)).observe(el);
+    },
+
+    populateSelects: () => { App.populateSymbol('CRYPTO'); },
+
+    populateSymbol: (market) => {
+        const sel = document.getElementById('symbol');
+        sel.innerHTML = '';
+        ASSETS[market].forEach(s => {
+            let opt = document.createElement('option');
+            opt.value = s; opt.text = s; sel.add(opt);
+        });
+    },
+
+    renderParams: () => {
+        const strat = document.getElementById('strategy').value;
+        const container = document.getElementById('params-container');
+        container.innerHTML = '';
+        App.params[strat].forEach(p => {
+            let d = document.createElement('div');
+            d.className = 'param-grid';
+            d.innerHTML = `<label>${p.label}</label><input type="${p.type}" id="${p.id}" value="${p.val}" step="${p.step||1}">`;
+            container.appendChild(d);
+        });
+    },
+
+    getParams: () => {
+        const strat = document.getElementById('strategy').value;
+        let p = {};
+        App.params[strat].forEach(k => p[k.id] = parseFloat(document.getElementById(k.id).value));
+        return p;
+    },
+
+    // Seeded Data Generation for consistency
+    generateData: (symbol) => {
+        // Create a unique seed based on symbol characters
+        let seed = 0;
+        for(let i=0; i<symbol.length; i++) seed += symbol.charCodeAt(i);
+        
+        const rng = new Random(seed);
+        let data = [];
+        let price = 100 + rng.range(0, 50);
+        let time = Math.floor(Date.now()/1000) - (500*3600);
+        
+        for(let i=0; i<500; i++) {
+            let move = rng.range(-2, 2.1); // Volatility
+            let close = price + move;
+            let open = price;
+            let high = Math.max(open, close) + rng.range(0, 1);
+            let low = Math.min(open, close) - rng.range(0, 1);
+            data.push({ time, open, high, low, close });
+            price = close;
+            time += 3600;
+        }
+        return data;
+    },
+
+    fetchData: async () => {
+        const m = document.getElementById('market').value;
+        const s = document.getElementById('symbol').value;
+        const i = document.getElementById('interval').value;
+        
+        if(m === 'CRYPTO') {
+            const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}&interval=${i}&limit=500`);
+            const j = await r.json();
+            return j.map(d => ({time: d[0]/1000, open: parseFloat(d[1]), high: parseFloat(d[2]), low: parseFloat(d[3]), close: parseFloat(d[4])}));
+        } else {
+            await new Promise(r => setTimeout(r, 300));
+            return App.generateData(s);
+        }
+    },
+
+    start: async () => {
+        document.getElementById('loading').style.display = 'flex';
+        try {
+            const data = await App.fetchData();
+            App.currentData = data;
+            const strat = document.getElementById('strategy').value;
+            const params = App.getParams();
+            
+            const res = Backtest.run(data, strat, params);
+            
+            App.series.setData(data);
+            App.series.setMarkers(res.markers);
+            App.chart.timeScale().fitContent();
+            
+            const bal = parseFloat(document.getElementById('balance').value);
+            const pnl = res.balance - bal;
+            
+            document.getElementById('res-balance').innerText = '$' + res.balance.toFixed(2);
+            document.getElementById('res-pnl').innerHTML = `<span class="${pnl>=0?'profit':'loss'}">${pnl>=0?'+':''}${pnl.toFixed(2)}</span>`;
+            document.getElementById('res-win').innerText = '%' + res.winRate;
+            document.getElementById('res-trades').innerText = res.totalTrades;
+            
+        } catch(e) { console.error(e); alert('Hata: ' + e.message); }
+        finally { document.getElementById('loading').style.display = 'none'; }
+    }
+};
+
+/**
+ * --- BACKTESTER ---
+ */
+const Backtest = {
+    run: (data, strat, p) => {
+        let balance = parseFloat(document.getElementById('balance').value);
+        let pos = null;
+        let trades = 0, wins = 0;
+        let markers = [];
+        let signals = new Array(data.length).fill(null);
+
+        // Generate Signals
+        if(strat === 'supertrend') {
+            const st = Indicators.superTrend(data, p.st_period, p.st_factor);
+            signals = st.map(s => s.signal);
+        } else if(strat === 'turtle') {
+            const dIn = Indicators.donchian(data, p.tt_in);
+            const dOut = Indicators.donchian(data, p.tt_out);
+            
+            for(let i=p.tt_in; i<data.length; i++) {
+                // Breakout
+                if(data[i].close > dIn[i-1].upper) signals[i] = 'LONG';
+                else if(data[i].close < dIn[i-1].lower) signals[i] = 'SHORT';
+                
+                // Exit logic specific to Turtle (Touch opposite shorter channel)
+                // For simplicity in this unified structure, we will treat reversals as signals
+                // But typically turtle closes LONG if price < dOut[i-1].lower
+                // Here we keep it simple: Reversal Strategy
+            }
+        } else if(strat === 'rsi') {
+            const r = Indicators.rsi(data, p.rsi_p);
+            for(let i=1; i<data.length; i++) {
+                if(r[i-1] < p.rsi_os && r[i] >= p.rsi_os) signals[i] = 'LONG';
+                else if(r[i-1] > p.rsi_ob && r[i] <= p.rsi_ob) signals[i] = 'SHORT';
+            }
+        } else if(strat === 'macd') {
+            const m = Indicators.macd(data, p.m_fast, p.m_slow, p.m_sig);
+            for(let i=1; i<data.length; i++) {
+                if(m.macd[i-1] < m.signal[i-1] && m.macd[i] > m.signal[i]) signals[i] = 'LONG';
+                else if(m.macd[i-1] > m.signal[i-1] && m.macd[i] < m.signal[i]) signals[i] = 'SHORT';
+            }
+        } else if(strat === 'ema') {
+            const f = Indicators.ema(data, p.e_fast);
+            const s = Indicators.ema(data, p.e_slow);
+            for(let i=1; i<data.length; i++) {
+                if(f[i-1] < s[i-1] && f[i] > s[i]) signals[i] = 'LONG';
+                else if(f[i-1] > s[i-1] && f[i] < s[i]) signals[i] = 'SHORT';
+            }
+        } else if(strat === 'bollinger') {
+            const bb = Indicators.bollinger(data, p.bb_p, p.bb_std);
+            for(let i=1; i<data.length; i++) {
+                if(data[i].close < bb[i].lower) signals[i] = 'LONG';
+                else if(data[i].close > bb[i].upper) signals[i] = 'SHORT';
+            }
+        }
+
+        // Execute
+        for(let i=50; i<data.length; i++) {
+            const s = signals[i];
+            const price = data[i].close;
+            
+            // Turtle Special Exit Logic (Optional refinement)
+            // If using pure Reversal, standard logic applies. 
+            
+            if(pos) {
+                if((pos.type === 'LONG' && s === 'SHORT') || (pos.type === 'SHORT' && s === 'LONG')) {
+                    let pnl = (pos.type === 'LONG' ? price - pos.entry : pos.entry - price) * pos.amt;
+                    balance += pnl;
+                    trades++;
+                    if(pnl > 0) wins++;
+                    markers.push({ time: data[i].time, position: pos.type==='LONG'?'aboveBar':'belowBar', color: '#888', shape: 'circle', text: 'Exit' });
+                    pos = null;
+                }
+            }
+            
+            if(!pos && s) {
+                pos = { type: s, entry: price, amt: balance/price };
+                markers.push({
+                    time: data[i].time,
+                    position: s==='LONG'?'belowBar':'aboveBar',
+                    color: s==='LONG'?'#089981':'#f23645',
+                    shape: s==='LONG'?'arrowUp':'arrowDown',
+                    text: s
+                });
+            }
+        }
+        
+        // Close open pos at end
+        if(pos) {
+            let price = data[data.length-1].close;
+            let pnl = (pos.type === 'LONG' ? price - pos.entry : pos.entry - price) * pos.amt;
+            balance += pnl;
+            trades++;
+            if(pnl > 0) wins++;
+        }
+
+        return { balance, winRate: trades>0?Math.round((wins/trades)*100):0, totalTrades: trades, markers };
+    }
+};
+
+/**
+ * --- OPTIMIZER ---
+ */
+const Optimizer = {
+    run: async () => {
+        const strat = document.getElementById('strategy').value;
+        const data = App.currentData;
+        const status = document.getElementById('opt-status');
+        
+        if(!data.length) { alert('Veri yok!'); return; }
+        
+        status.innerText = "Optimizasyon Başlatılıyor...";
+        let vars = [];
+
+        // Define search space
+        if(strat === 'supertrend') {
+            for(let p=7; p<=21; p+=2) for(let f=1; f<=6; f+=0.5) vars.push({st_period:p, st_factor:f});
+        } else if(strat === 'turtle') {
+            for(let i=10; i<=50; i+=10) for(let o=5; o<=25; o+=5) if(i>o) vars.push({tt_in:i, tt_out:o});
+        } else if(strat === 'rsi') {
+            for(let p=7; p<=21; p+=2) for(let ob=65; ob<=85; ob+=5) for(let os=15; os<=35; os+=5) vars.push({rsi_p:p, rsi_ob:ob, rsi_os:os});
+        } else if(strat === 'macd') {
+            vars.push({m_fast:12, m_slow:26, m_sig:9}); // Standard
+            vars.push({m_fast:8, m_slow:21, m_sig:5}); // Quick
+            vars.push({m_fast:24, m_slow:52, m_sig:18}); // Slow
+        } else if(strat === 'ema') {
+            for(let f=5; f<=20; f+=5) for(let s=20; s<=60; s+=10) if(s>f) vars.push({e_fast:f, e_slow:s});
+        } else if(strat === 'bollinger') {
+            for(let p=10; p<=30; p+=5) for(let s=1.5; s<=3; s+=0.5) vars.push({bb_p:p, bb_std:s});
+        }
+
+        let bestPnL = -Infinity;
+        let bestP = null;
+
+        for(let i=0; i<vars.length; i++) {
+            status.innerText = `Test ediliyor: ${i+1} / ${vars.length}`;
+            if(i%5 === 0) await new Promise(r => setTimeout(r, 0)); // UI Freezing prevent
+            
+            const r = Backtest.run(data, strat, vars[i]);
+            if(r.balance > bestPnL) {
+                bestPnL = r.balance;
+                bestP = vars[i];
+            }
+        }
+
+        status.innerText = "Optimizasyon Tamamlandı!";
+        if(bestP) {
+            for(let k in bestP) document.getElementById(k).value = bestP[k];
+            App.start();
+            alert(`Maksimum Bakiye: $${bestPnL.toFixed(2)} bulundu!`);
+        }
+    }
+};
+
+window.addEventListener('DOMContentLoaded', App.init);
+</script>
+</body>
+</html>

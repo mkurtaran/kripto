@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProTrade Backtest & Sinyal Paneli</title>
+    <!-- TradingView Lightweight Charts v4.1.1 (Stabil Sürüm) -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        /* --- CSS STYLES --- */
+        :root {
+            --bg-main: #0b0e11;
+            --bg-panel: #151924;
+            --bg-input: #2a2e39;
+            --border: #2a2e39;
+            --text-main: #e1e3eb;
+            --text-dim: #848e9c;
+            --accent: #2962ff;
+            --green: #0ecb81;
+            --red: #f6465d;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        * { box-sizing: border-box; outline: none; }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: var(--font);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- HEADER & TOOLBAR --- */
+        header {
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+            flex-shrink: 0;
+        }
+
+        .brand { font-weight: 800; font-size: 1.2rem; color: var(--text-main); }
+        .brand span { color: var(--accent); }
+
+        .toolbar { display: flex; gap: 10px; align-items: center; }
+
+        /* Form Elemanları */
+        select, input[type="number"] {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        label { font-size: 0.75rem; color: var(--text-dim); margin-right: 5px; }
+        .group { display: flex; align-items: center; border-right: 1px solid var(--border); padding-right: 10px; margin-right: 5px; }
+        .group:last-child { border: none; }
+
+        button.btn-apply {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 7px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        button.btn-apply:hover { background-color: #1e54e6; }
+
+        /* --- MAIN LAYOUT --- */
+        .main-container {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 60px);
+        }
+
+        /* Grafik Alanı */
+        #chart-area {
+            flex: 3;
+            position: relative;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+        #tv-chart { flex: 1; width: 100%; }
+
+        /* Backtest İstatistik Barı (Grafik Altı) */
+        .stats-bar {
+            height: 50px;
+            background: var(--bg-panel);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 0 20px;
+        }
+        .stat-item { text-align: center; }
+        .stat-label { font-size: 0.7rem; color: var(--text-dim); }
+        .stat-value { font-size: 1rem; font-weight: 700; }
+        .stat-value.profit { color: var(--green); }
+        .stat-value.loss { color: var(--red); }
+
+        /* Sağ Panel (İşlem Geçmişi) */
+        aside {
+            flex: 1;
+            min-width: 320px;
+            max-width: 400px;
+            background: var(--bg-panel);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header { padding: 15px; font-weight: 600; border-bottom: 1px solid var(--border); }
+        
+        .trade-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        /* İşlem Kartı */
+        .trade-card {
+            background: var(--bg-main);
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #777;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .trade-card.win { border-left-color: var(--green); }
+        .trade-card.loss { border-left-color: var(--red); }
+
+        .trade-info div { margin-bottom: 3px; }
+        .trade-pnl { font-weight: bold; text-align: right; }
+        .trade-time { font-size: 0.7rem; color: var(--text-dim); }
+
+        /* Loader */
+        #loader {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.7); padding: 20px; border-radius: 8px;
+            z-index: 99; display: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">Trade<span>Master</span></div>
+        <div class="toolbar">
+            <!-- Market & Symbol -->
+            <div class="group">
+                <select id="market-select">
+                    <option value="CRYPTO">Kripto (Canlı)</option>
+                    <option value="BIST">Borsa İstanbul (Simülasyon)</option>
+                    <option value="US">ABD Borsası (Simülasyon)</option>
+                </select>
+                <select id="symbol-select" style="width: 100px; margin-left:5px;">
+                    <!-- JS ile dolacak -->
+                </select>
+            </div>
+
+            <!-- Timeframe & Candles -->
+            <div class="group">
+                <select id="tf-select">
+                    <option value="15m">15 Dakika</option>
+                    <option value="30m">30 Dakika</option>
+                    <option value="1h">1 Saat</option>
+                    <option value="4h" selected>4 Saat</option>
+                    <option value="1d">1 Gün</option>
+                </select>
+                <input type="number" id="candle-count" value="200" min="50" max="1000" title="Mum Sayısı" style="width: 60px; margin-left: 5px;">
+            </div>
+
+            <!-- Strategy & Balance -->
+            <div class="group">
+                <select id="strategy-select">
+                    <option value="supertrend">SuperTrend</option>
+                    <option value="turtle">Turtle Trading</option>
+                    <option value="mixed">Mixed (İkisi de)</option>
+                </select>
+                <label style="margin-left:5px;">$</label>
+                <input type="number" id="initial-balance" value="1000" style="width: 80px;">
+            </div>
+
+            <button class="btn-apply" onclick="App.run()">Yenile</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div id="chart-area">
+            <div id="tv-chart"></div>
+            <div id="loader">Veriler İşleniyor...</div>
+            
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-label">Toplam Bakiye</div>
+                    <div class="stat-value" id="disp-balance">$1000.00</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Net Kâr/Zarar</div>
+                    <div class="stat-value" id="disp-pnl">$0.00</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Başarılı İşlem</div>
+                    <div class="stat-value" id="disp-winrate">%0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Toplam İşlem</div>
+                    <div class="stat-value" id="disp-trades">0</div>
+                </div>
+            </div>
+        </div>
+
+        <aside>
+            <div class="panel-header">İşlem Geçmişi</div>
+            <div class="trade-list" id="trade-list">
+                <!-- İşlemler buraya gelecek -->
+                <div style="text-align:center; color:#555; padding:20px;">Henüz işlem yok</div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        /**
+         * --- CONFIGURATION & DATA MANAGEMENT ---
+         */
+        const Markets = {
+            CRYPTO: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'AVAXUSDT', 'XRPUSDT', 'DOGEUSDT'],
+            BIST: ['THYAO', 'ASELS', 'GARAN', 'SISE', 'AKBNK', 'EREGL'],
+            US: ['AAPL', 'TSLA', 'NVDA', 'AMZN', 'MSFT', 'GOOGL']
+        };
+
+        const Config = {
+            market: 'CRYPTO',
+            symbol: 'BTCUSDT',
+            interval: '4h',
+            limit: 200, // Display limit
+            fetchBuffer: 100, // Indicator warm-up
+            initialBalance: 1000,
+            strategy: 'supertrend' // supertrend, turtle, mixed
+        };
+
+        let chart, candleSeries;
+        
+        /**
+         * --- INDICATORS ---
+         */
+        const Indicators = {
+            atr: (data, period) => {
+                let trs = data.map((d, i) => {
+                    if(i===0) return d.high - d.low;
+                    return Math.max(d.high - d.low, Math.abs(d.high - data[i-1].close), Math.abs(d.low - data[i-1].close));
+                });
+                
+                let atr = [];
+                // Simple MA for first ATR
+                let sum = 0;
+                for(let i=0; i<period; i++) sum += trs[i];
+                atr[period-1] = sum / period;
+
+                // Wilder's Smoothing
+                for(let i=period; i<data.length; i++) {
+                    atr[i] = ((atr[i-1] * (period-1)) + trs[i]) / period;
+                }
+                return atr;
+            },
+
+            superTrend: (data, period=10, multiplier=3) => {
+                const atr = Indicators.atr(data, period);
+                let st = []; // { trend: 1/-1, value: num, signal: 'LONG'/'SHORT'/null }
+
+                for(let i=0; i<data.length; i++) {
+                    if(!atr[i]) { st.push({trend:1}); continue; }
+
+                    let hl2 = (data[i].high + data[i].low) / 2;
+                    let basicUpper = hl2 + (multiplier * atr[i]);
+                    let basicLower = hl2 - (multiplier * atr[i]);
+                    
+                    let prev = st[i-1] || { upper: basicUpper, lower: basicLower, trend: 1 };
+                    
+                    let finalUpper = (basicUpper < prev.upper || data[i-1].close > prev.upper) ? basicUpper : prev.upper;
+                    let finalLower = (basicLower > prev.lower || data[i-1].close < prev.lower) ? basicLower : prev.lower;
+
+                    let trend = prev.trend;
+                    let signal = null;
+
+                    if(trend === 1 && data[i].close < finalLower) {
+                        trend = -1; signal = 'SHORT';
+                    } else if(trend === -1 && data[i].close > finalUpper) {
+                        trend = 1; signal = 'LONG';
+                    }
+
+                    st.push({
+                        trend,
+                        value: trend === 1 ? finalLower : finalUpper,
+                        upper: finalUpper,
+                        lower: finalLower,
+                        signal
+                    });
+                }
+                return st;
+            },
+
+            turtle: (data, period=20) => {
+                let res = [];
+                for(let i=0; i<data.length; i++) {
+                    if(i < period) { res.push({}); continue; }
+                    
+                    let window = data.slice(i-period, i);
+                    let high = Math.max(...window.map(x=>x.high));
+                    let low = Math.min(...window.map(x=>x.low));
+                    
+                    let signal = null;
+                    if(data[i].close > high) signal = 'LONG';
+                    else if(data[i].close < low) signal = 'SHORT';
+
+                    // Signal filter: Only indicate CHANGE or Breakout continuation
+                    // For backtest simplicity: continuous signal is fine, engine handles entry
+                    res.push({ signal, high, low });
+                }
+                return res;
+            }
+        };
+
+        /**
+         * --- BACKTEST ENGINE ---
+         */
+        const Backtest = {
+            run: (data, stData, turtleData) => {
+                let balance = Config.initialBalance;
+                let position = null; // { type: 'LONG'/'SHORT', entryPrice: num, amount: num, time: time }
+                let trades = [];
+                
+                // Display start index
+                const startIdx = data.length - Config.limit;
+
+                for(let i = Math.max(0, startIdx); i < data.length; i++) {
+                    const price = data[i].close; // Executing at Close for simplicity
+                    const time = data[i].time;
+                    
+                    // Determine Signal based on Strategy
+                    let signal = null;
+                    const stSig = stData[i]?.signal;
+                    const tSig = turtleData[i]?.signal;
+
+                    if(Config.strategy === 'supertrend') {
+                        signal = stSig;
+                    } else if(Config.strategy === 'turtle') {
+                        // Turtle simple change detection
+                        const prevT = turtleData[i-1]?.signal;
+                        if(tSig && tSig !== prevT) signal = tSig; 
+                    } else {
+                        // Mixed: If SuperTrend flips, prioritize it. If Turtle breaks out, use it.
+                        // Priority to latest signal
+                        signal = stSig || ( (tSig && tSig !== turtleData[i-1]?.signal) ? tSig : null );
+                    }
+
+                    // --- TRADING LOGIC ---
+
+                    // 1. Close Existing Position if Signal Reverses
+                    if(position) {
+                        let close = false;
+                        if(position.type === 'LONG' && signal === 'SHORT') close = true;
+                        if(position.type === 'SHORT' && signal === 'LONG') close = true;
+
+                        if(close) {
+                            // Calculate PnL
+                            let pnl = 0;
+                            if(position.type === 'LONG') {
+                                pnl = (price - position.entryPrice) * position.amount;
+                            } else {
+                                pnl = (position.entryPrice - price) * position.amount;
+                            }
+                            
+                            balance += pnl;
+                            trades.push({
+                                type: position.type,
+                                entry: position.entryPrice,
+                                exit: price,
+                                pnl: pnl,
+                                entryTime: position.time,
+                                exitTime: time,
+                                balance: balance
+                            });
+                            position = null;
+                        }
+                    }
+
+                    // 2. Open New Position if No Position
+                    if(!position && signal) {
+                        // Full balance all in
+                        const amount = balance / price;
+                        position = {
+                            type: signal,
+                            entryPrice: price,
+                            amount: amount,
+                            time: time
+                        };
+                    }
+                }
+
+                return { trades, finalBalance: balance, currentPosition: position };
+            }
+        };
+
+        /**
+         * --- APP LOGIC ---
+         */
+        const App = {
+            init: () => {
+                App.initChart();
+                App.bindEvents();
+                App.updateSymbolList(); // Initial population
+                App.run();
+            },
+
+            initChart: () => {
+                const el = document.getElementById('tv-chart');
+                chart = LightweightCharts.createChart(el, {
+                    layout: { background: { color: '#0b0e11' }, textColor: '#e1e3eb' },
+                    grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } },
+                    timeScale: { borderColor: '#2a2e39', timeVisible: true },
+                    rightPriceScale: { borderColor: '#2a2e39' },
+                });
+                candleSeries = chart.addCandlestickSeries({
+                    upColor: '#0ecb81', downColor: '#f6465d',
+                    borderVisible: false, wickUpColor: '#0ecb81', wickDownColor: '#f6465d'
+                });
+                
+                new ResizeObserver(e => {
+                    chart.resize(el.clientWidth, el.clientHeight);
+                }).observe(el);
+            },
+
+            bindEvents: () => {
+                // Market Change -> Update Symbols
+                document.getElementById('market-select').addEventListener('change', (e) => {
+                    Config.market = e.target.value;
+                    App.updateSymbolList();
+                });
+                // Symbol Change
+                document.getElementById('symbol-select').addEventListener('change', (e) => Config.symbol = e.target.value);
+                // Timeframe
+                document.getElementById('tf-select').addEventListener('change', (e) => Config.interval = e.target.value);
+                // Candle Count
+                document.getElementById('candle-count').addEventListener('change', (e) => Config.limit = parseInt(e.target.value));
+                // Strategy
+                document.getElementById('strategy-select').addEventListener('change', (e) => Config.strategy = e.target.value);
+                // Balance
+                document.getElementById('initial-balance').addEventListener('change', (e) => Config.initialBalance = parseFloat(e.target.value));
+            },
+
+            updateSymbolList: () => {
+                const sel = document.getElementById('symbol-select');
+                sel.innerHTML = '';
+                Markets[Config.market].forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.text = s;
+                    sel.appendChild(opt);
+                });
+                // Reset config symbol to first in list
+                Config.symbol = Markets[Config.market][0];
+            },
+
+            generateMockData: (basePrice, vol) => {
+                // BIST/US için backend olmadığı için simülasyon verisi üretiyoruz
+                // CORS hatası almamak için bu yöntem zorunlu.
+                const count = Config.limit + Config.fetchBuffer;
+                let data = [];
+                let time = Math.floor(Date.now() / 1000) - (count * 3600); // 1h steps approx
+                let price = basePrice;
+                
+                for(let i=0; i<count; i++) {
+                    let change = (Math.random() - 0.5) * vol;
+                    let close = price + change;
+                    let open = price;
+                    let high = Math.max(open, close) + Math.random() * (vol/2);
+                    let low = Math.min(open, close) - Math.random() * (vol/2);
+                    
+                    data.push({ time, open, high, low, close });
+                    price = close;
+                    time += (Config.interval === '15m' ? 900 : Config.interval === '1h' ? 3600 : 14400);
+                }
+                return data;
+            },
+
+            fetchData: async () => {
+                const loader = document.getElementById('loader');
+                loader.style.display = 'block';
+                
+                let data = [];
+
+                try {
+                    if(Config.market === 'CRYPTO') {
+                        // Binance API
+                        const totalLimit = Config.limit + Config.fetchBuffer;
+                        const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${Config.symbol}&interval=${Config.interval}&limit=${totalLimit}`);
+                        const json = await res.json();
+                        data = json.map(d => ({
+                            time: d[0]/1000, open: parseFloat(d[1]), high: parseFloat(d[2]),
+                            low: parseFloat(d[3]), close: parseFloat(d[4])
+                        }));
+                    } else {
+                        // Mock Data for Stock Simulation
+                        await new Promise(r => setTimeout(r, 500)); // Fake network delay
+                        const basePrice = Config.market === 'BIST' ? 100 : 150;
+                        const volatility = Config.market === 'BIST' ? 2 : 5;
+                        data = App.generateMockData(basePrice, volatility);
+                    }
+                } catch(e) {
+                    console.error(e);
+                    alert("Veri çekilemedi!");
+                } finally {
+                    loader.style.display = 'none';
+                }
+                return data;
+            },
+
+            run: async () => {
+                const data = await App.fetchData();
+                if(!data.length) return;
+
+                // 1. Calculate Indicators
+                const stData = Indicators.superTrend(data);
+                const turtleData = Indicators.turtle(data);
+
+                // 2. Run Backtest
+                const results = Backtest.run(data, stData, turtleData);
+
+                // 3. Render Chart
+                const displayData = data.slice(data.length - Config.limit);
+                candleSeries.setData(displayData);
+                chart.timeScale().fitContent();
+
+                // 4. Render Markers (Signals)
+                const markers = [];
+                // Only show markers within display limit
+                const startTime = displayData[0].time;
+
+                results.trades.forEach(trade => {
+                    if(trade.entryTime >= startTime) {
+                        markers.push({
+                            time: trade.entryTime,
+                            position: trade.type === 'LONG' ? 'belowBar' : 'aboveBar',
+                            color: trade.type === 'LONG' ? '#0ecb81' : '#f6465d',
+                            shape: trade.type === 'LONG' ? 'arrowUp' : 'arrowDown',
+                            text: 'GİRİŞ ' + trade.type,
+                            size: 1
+                        });
+                    }
+                    if(trade.exitTime >= startTime) {
+                        markers.push({
+                            time: trade.exitTime,
+                            position: trade.type === 'LONG' ? 'aboveBar' : 'belowBar',
+                            color: '#e1e3eb',
+                            shape: 'circle',
+                            text: 'ÇIKIŞ',
+                            size: 1
+                        });
+                    }
+                });
+                
+                // Add current open position marker if exists
+                if(results.currentPosition && results.currentPosition.time >= startTime) {
+                    markers.push({
+                        time: results.currentPosition.time,
+                        position: results.currentPosition.type === 'LONG' ? 'belowBar' : 'aboveBar',
+                        color: '#2962ff',
+                        shape: 'arrowUp',
+                        text: 'AÇIK POZ',
+                    });
+                }
+
+                candleSeries.setMarkers(markers.sort((a,b) => a.time - b.time));
+
+                // 5. Render Stats & Panel
+                App.renderStats(results);
+            },
+
+            renderStats: (results) => {
+                const trades = results.trades;
+                const winCount = trades.filter(t => t.pnl > 0).length;
+                const totalTrades = trades.length;
+                const winRate = totalTrades > 0 ? Math.round((winCount / totalTrades) * 100) : 0;
+                const netPnL = results.finalBalance - Config.initialBalance;
+
+                // Top Bar
+                document.getElementById('disp-balance').innerText = '$' + results.finalBalance.toFixed(2);
+                document.getElementById('disp-pnl').innerText = '$' + netPnL.toFixed(2);
+                document.getElementById('disp-pnl').className = 'stat-value ' + (netPnL >= 0 ? 'profit' : 'loss');
+                document.getElementById('disp-winrate').innerText = '%' + winRate;
+                document.getElementById('disp-trades').innerText = totalTrades;
+
+                // Side List
+                const listEl = document.getElementById('trade-list');
+                listEl.innerHTML = '';
+                
+                [...trades].reverse().forEach(t => {
+                    const el = document.createElement('div');
+                    el.className = `trade-card ${t.pnl >= 0 ? 'win' : 'loss'}`;
+                    el.innerHTML = `
+                        <div class="trade-info">
+                            <div style="font-weight:bold; color: ${t.type==='LONG'?'var(--green)':'var(--red)'}">${t.type}</div>
+                            <div class="trade-time">Giriş: ${t.entry.toFixed(2)}</div>
+                            <div class="trade-time">Çıkış: ${t.exit.toFixed(2)}</div>
+                        </div>
+                        <div class="trade-pnl">
+                            <div style="color: ${t.pnl>=0?'var(--green)':'var(--red)'}">${t.pnl >=0 ? '+' : ''}${t.pnl.toFixed(2)}</div>
+                            <div style="font-size:0.7rem; color:#888;">${new Date(t.exitTime*1000).toLocaleDateString()}</div>
+                        </div>
+                    `;
+                    listEl.appendChild(el);
+                });
+            }
+        };
+
+        // Start
+        window.addEventListener('DOMContentLoaded', App.init);
+
+    </script>
+</body>
+</html>
