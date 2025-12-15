@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProTrade AI V29 - Stable Core</title>
+    <title>ProTrade AI V5 - Crypto Liquidation Algo</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         :root {
@@ -28,9 +28,15 @@
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
         /* SIDEBAR CONTAINER */
-        aside { width: 360px; background: var(--bg-panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 20; }
+        aside { width: 360px; background: var(--bg-panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 20; transition: transform 0.3s ease; }
         
-        .header { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; color: var(--text-main); background: #0d1117; }
+        .header { 
+            position: relative; padding: 15px; border-bottom: 1px solid var(--border); 
+            font-weight: 700; font-size: 1.2rem; display: flex; align-items: center; 
+            justify-content: space-between; 
+            color: var(--text-main); background: #0d1117; 
+        }
+        .header-title { display: flex; align-items: center; gap: 10px; }
         .header span { color: var(--accent); }
 
         /* SIDEBAR TABS */
@@ -155,7 +161,7 @@
         td { padding: 6px 15px; border-bottom: 1px solid var(--border); color: var(--text-main); font-family: monospace; }
         tbody tr:hover { background: #1c2128; cursor: pointer; }
 
-        .badge { padding: 3px 8px; border-radius: 4px; font-weight: 700; font-size: 0.7rem; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-weight: 700; font-size: 0.7rem; display: ruby-text;}
         .b-long { background: rgba(46, 160, 67, 0.15); color: #3fb950; border: 1px solid rgba(46, 160, 67, 0.4); }
         .b-short { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid rgba(248, 81, 73, 0.4); }
         .b-open { background: rgba(56, 139, 253, 0.15); color: #58a6ff; border: 1px solid rgba(56, 139, 253, 0.4); }
@@ -172,6 +178,112 @@
         .ts-group { display: flex; align-items: center; gap: 15px; }
         .ts-label { font-size: 0.8rem; color: var(--text-dim); font-weight: 600; }
         .ts-val { font-family: monospace; font-size: 1rem; font-weight: 700; }
+		
+		/* ===========================
+		   RESPONSIVE SYSTEM
+		=========================== */
+
+		/* Mobile menu button (Hamburger) */
+		#mobile-menu-btn {
+			display: none;
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 20px;
+            cursor: pointer;
+            line-height: 1;
+            width: auto;
+            margin: 0;
+		}
+        #mobile-menu-btn:hover { background: #21262d; border-color: var(--accent); color: var(--accent); }
+
+		/* ---------- TABLET & MOBILE ---------- */
+		@media (max-width: 1024px) {
+
+			body {
+				flex-direction: column;
+				overflow: hidden;
+			}
+
+			#mobile-menu-btn {
+				display: block;
+			}
+
+			aside {
+				position: fixed;
+				top: 0;
+				left: -100%; /* Hidden by default */
+				width: 85%;
+				max-width: 420px;
+				height: 100%;
+				z-index: 10000;
+				box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+			}
+
+			aside.open {
+				left: 0; /* Slide in */
+                transform: none;
+			}
+
+			main {
+				flex: 1;
+				width: 100%;
+				height: 100%;
+			}
+
+			#chart-wrap {
+				height: calc(100vh - 120px);
+			}
+
+			.stats {
+				height: auto;
+				flex-wrap: wrap;
+				padding: 10px 0;
+				gap: 10px;
+			}
+
+			.stat-box {
+				width: 45%;
+			}
+
+			#bottom-panel {
+				height: 40vh;
+			}
+
+			.tabs {
+				overflow-x: auto;
+				white-space: nowrap;
+			}
+
+			.tab {
+				flex-shrink: 0;
+			}
+
+			.row {
+				grid-template-columns: 1fr;
+			}
+            
+            /* Overlay when menu is open */
+            #menu-backdrop {
+                display: none;
+                position: fixed; top:0; left:0; width:100%; height:100%;
+                background: rgba(0,0,0,0.5); z-index: 9999;
+            }
+            #menu-backdrop.active { display: block; }
+            
+            /* Mobile Header for Button */
+            #mobile-header {
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 10px 15px; background: #0d1117; border-bottom: 1px solid var(--border);
+            }
+		}
+        
+        @media (min-width: 1025px) {
+            #mobile-header { display: none; }
+        }
+
     </style>
 </head>
 <body>
@@ -188,8 +300,15 @@
     </div>
 </div>
 
+<div id="menu-backdrop" onclick="App.closeMenu()"></div>
+
 <aside>
-    <div class="header">ProTrade <span>AI V29</span></div>
+    <div class="header">
+        <div class="header-title">
+            ProTrade <span>AI</span>
+        </div>
+        <button id="mobile-menu-btn" style="border:none;" onclick="App.closeMenu()" class="hide-desktop">✕</button>
+	</div>
     
     <!-- SIDEBAR TABS -->
     <div class="sidebar-tabs">
@@ -224,6 +343,8 @@
                 <div>
                     <label>Periyot</label>
                     <select id="interval">
+						<option value="1m">1 Dk</option>
+						<option value="5m">5 Dk</option>
                         <option value="15m">15 Dk</option>
                         <option value="1h">1 Saat</option>
                         <option value="2h">2 Saat</option>
@@ -254,24 +375,36 @@
                 </div>
             </div>
             
-            <button class="btn-run" onclick="App.run()">Analiz Et</button>
+            <button class="btn-run" onclick="App.run(); App.closeMenu();">Analiz Et</button>
         </div>
     </div>
 
     <!-- TAB: STRATEGY -->
     <div id="sb-strat" class="sidebar-content">
         <div class="section">
-            <div class="sec-title">Algoritma (Backtest)</div>
+            <div class="sec-title">Algoritma Seçimi</div>
             <select id="strategy">
-                <option value="supertrend">SuperTrend</option>
-                <option value="psar">Parabolic SAR</option>
-                <option value="stoch">Stochastic</option>
-                <option value="turtle">Turtle Trading</option>
-                <option value="emacross">EMA Cross</option>
+                <optgroup label="Özel Kripto Algoritmaları">
+                    <option value="lsvt">LSVT (Likidasyon & Hacim)</option>
+                </optgroup>
+                <optgroup label="Trend Takip">
+                    <option value="supertrend">SuperTrend</option>
+                    <option value="emacross">EMA Cross (MA Kesişimi)</option>
+                    <option value="psar">Parabolic SAR</option>
+                    <option value="turtle">Turtle Trading</option>
+                    <option value="vwap">VWAP (Hacim Ağırlıklı)</option>
+                    <option value="adx">ADX (Trend Gücü)</option>
+                </optgroup>
+                <optgroup label="Momentum / Osilatör">
+                    <option value="rsi_strat">RSI (Aşırı Alım/Satım)</option>
+                    <option value="macd">MACD (Trend + Momentum)</option>
+                    <option value="stoch">Stochastic</option>
+                    <option value="williams">Williams %R</option>
+                </optgroup>
             </select>
             <div id="params"></div>
             
-            <!-- TP / SL MODULE (FIXED CLICK) -->
+            <!-- TP / SL MODULE -->
             <div class="tp-sl-box">
                 <div class="tp-sl-header" onclick="App.toggleTpSlManual()">
                     <input type="checkbox" id="use-tpsl">
@@ -299,7 +432,7 @@
 
         <div class="section">
             <div class="sec-title">Görsel İndikatörler</div>
-            <label>RSI Periyodu</label>
+            <label>Grafik Altı RSI Periyodu</label>
             <input type="number" id="vis-rsi-len" value="14">
         </div>
     </div>
@@ -309,9 +442,8 @@
         <div class="section">
             <div class="sec-title">Piyasa Tarayıcı</div>
             <div id="crypto-scanner-area">
-                <button class="btn-scan" id="scan-btn" onclick="Scanner.start()">🚀 TÜM PİYASAYI TARA</button>
+                <button class="btn-scan" id="scan-btn" onclick="Scanner.start(); App.closeMenu();">🚀 TÜM PİYASAYI TARA</button>
                 
-                <!-- Fixed Checkbox Alignment & Click -->
                 <div class="checkbox-row" onclick="App.toggleScanOpt()">
                     <input type="checkbox" id="scan-tpsl-opt">
                     <label>TP/SL Dahil Optimize Et</label>
@@ -340,6 +472,13 @@
 </aside>
 
 <main>
+    <!-- MOBILE HEADER with MENU BUTTON -->
+    <div id="mobile-header">
+        <button id="mobile-menu-btn" onclick="App.openMenu()">☰</button>
+        <div style="font-weight:700; color:var(--text-main);">ProTrade <span style="color:var(--accent);">AI</span></div>
+        <div style="width:30px;"></div> <!-- Spacer for centering -->
+    </div>
+
     <div id="toast"></div>
 
     <!-- Active Trade Status -->
@@ -431,15 +570,8 @@
 /* --- 1. DATA CONFIG --- */
 let ASSETS = {
     CRYPTO: [
-        {s:'BTCUSDT',n:'Bitcoin'},{s:'ETHUSDT',n:'Ethereum'},{s:'BNBUSDT',n:'Binance Coin'},{s:'SOLUSDT',n:'Solana'},
-        {s:'XRPUSDT',n:'Ripple'},{s:'ADAUSDT',n:'Cardano'},{s:'AVAXUSDT',n:'Avalanche'},{s:'DOGEUSDT',n:'Dogecoin'},
-        {s:'DOTUSDT',n:'Polkadot'},{s:'TRXUSDT',n:'Tron'},{s:'MATICUSDT',n:'Polygon'},{s:'LTCUSDT',n:'Litecoin'},
-        {s:'SHIBUSDT',n:'Shiba'},{s:'ATOMUSDT',n:'Cosmos'},{s:'LINKUSDT',n:'Chainlink'},{s:'UNIUSDT',n:'Uniswap'},
-        {s:'XLMUSDT',n:'Stellar'},{s:'ETCUSDT',n:'Ethereum Classic'},{s:'FILUSDT',n:'Filecoin'},{s:'APTUSDT',n:'Aptos'},
-        {s:'ARBUSDT',n:'Arbitrum'},{s:'NEARUSDT',n:'Near'},{s:'QNTUSDT',n:'Quant'},{s:'VETUSDT',n:'VeChain'},
-        {s:'MKRUSDT',n:'Maker'},{s:'GRTUSDT',n:'The Graph'},{s:'RNDRUSDT',n:'Render'},{s:'SNXUSDT',n:'Synthetix'},
-        {s:'THETAUSDT',n:'Theta'},{s:'SANDUSDT',n:'Sandbox'},{s:'MANAUSDT',n:'Decentraland'},{s:'AAVEUSDT',n:'Aave'}
-    ],
+			{s:'BTCUSDT',n:'Bitcoin'},{s:'ETHUSDT',n:'Ethereum'},{s:'BNBUSDT',n:'Binance Coin'},{s:'SOLUSDT',n:'Solana'},{s:'XRPUSDT',n:'Ripple'},{s:'DOGEUSDT',n:'Dogecoin'},{s:'ADAUSDT',n:'Cardano'},{s:'TRXUSDT',n:'Tron'},{s:'AVAXUSDT',n:'Avalanche'},{s:'MATICUSDT',n:'Polygon'},{s:'LINKUSDT',n:'Chainlink'},{s:'DOTUSDT',n:'Polkadot'},{s:'LTCUSDT',n:'Litecoin'},{s:'SHIBUSDT',n:'Shiba'},{s:'UNIUSDT',n:'Uniswap'},{s:'ATOMUSDT',n:'Cosmos'},{s:'ETCUSDT',n:'Ethereum Classic'},{s:'NEARUSDT',n:'Near'},{s:'APTUSDT',n:'Aptos'},{s:'ARBUSDT',n:'Arbitrum'},{s:'OPUSDT',n:'Optimism'},{s:'INJUSDT',n:'Injective'},{s:'FILUSDT',n:'Filecoin'},{s:'RNDRUSDT',n:'Render'},{s:'AAVEUSDT',n:'Aave'},{s:'MKRUSDT',n:'Maker'},{s:'GRTUSDT',n:'The Graph'},{s:'SNXUSDT',n:'Synthetix'},{s:'RUNEUSDT',n:'THORChain'},{s:'DYDXUSDT',n:'dYdX'},{s:'IMXUSDT',n:'Immutable X'},{s:'BCHUSDT',n:'Bitcoin Cash'},{s:'EOSUSDT',n:'EOS'},{s:'FTMUSDT',n:'Fantom'},{s:'EGLDUSDT',n:'MultiversX'},{s:'ALGOUSDT',n:'Algorand'},{s:'THETAUSDT',n:'Theta'},{s:'SANDUSDT',n:'Sandbox'},{s:'MANAUSDT',n:'Decentraland'},{s:'CHZUSDT',n:'Chiliz'},{s:'CRVUSDT',n:'Curve DAO'},{s:'APEUSDT',n:'ApeCoin'},{s:'GMTUSDT',n:'STEPN'},{s:'FLOWUSDT',n:'Flow'},{s:'XTZUSDT',n:'Tezos'},{s:'MINAUSDT',n:'Mina'},{s:'KAVAUSDT',n:'Kava'},{s:'ENJUSDT',n:'Enjin'},{s:'LRCUSDT',n:'Loopring'},{s:'1INCHUSDT',n:'1inch'},{s:'SUSHIUSDT',n:'SushiSwap'},{s:'BALUSDT',n:'Balancer'},{s:'ROSEUSDT',n:'Oasis'},{s:'CELOUSDT',n:'Celo'},{s:'IOTAUSDT',n:'IOTA'},{s:'WAVESUSDT',n:'Waves'},{s:'KSMUSDT',n:'Kusama'},{s:'ZILUSDT',n:'Zilliqa'},{s:'ANKRUSDT',n:'Ankr'},{s:'STORJUSDT',n:'Storj'},{s:'CTSIUSDT',n:'Cartesi'},{s:'HNTUSDT',n:'Helium'},{s:'FLUXUSDT',n:'Flux'},{s:'AUDIOUSDT',n:'Audius'},{s:'BATUSDT',n:'Basic Attention Token'},{s:'KNCUSDT',n:'Kyber Network'},{s:'COTIUSDT',n:'COTI'},{s:'DASHUSDT',n:'Dash'},{s:'ZECUSDT',n:'Zcash'},{s:'RVNUSDT',n:'Ravencoin'},{s:'XEMUSDT',n:'NEM'},{s:'ARPAUSDT',n:'ARPA Network'},{s:'BANDUSDT',n:'Band Protocol'},{s:'ONTUSDT',n:'Ontology'},{s:'ICXUSDT',n:'ICON'},{s:'SKLUSDT',n:'SKALE'},{s:'MASKUSDT',n:'Mask Network'}
+		],
     BIST: [{s:'THYAO.IS',n:'THY'},{s:'ASELS.IS',n:'Aselsan'},{s:'GARAN.IS',n:'Garanti'},{s:'AKBNK.IS',n:'Akbank'},{s:'SISE.IS',n:'Şişecam'},{s:'KCHOL.IS',n:'Koç'},{s:'SAHOL.IS',n:'Sabancı'},{s:'EREGL.IS',n:'Ereğli'},{s:'TUPRS.IS',n:'Tüpraş'},{s:'BIMAS.IS',n:'BİM'},{s:'ISCTR.IS',n:'İş Bankası'},{s:'YKBNK.IS',n:'Yapı Kredi'},{s:'FROTO.IS',n:'Ford Otosan'},{s:'TOASO.IS',n:'Tofaş'},{s:'TCELL.IS',n:'Turkcell'},{s:'SASA.IS',n:'SASA'},{s:'HEKTS.IS',n:'Hektaş'},{s:'PETKM.IS',n:'Petkim'},{s:'EKGYO.IS',n:'Emlak Konut'},{s:'ODAS.IS',n:'Odaş'},{s:'KOZAL.IS',n:'Koza'},{s:'KRDMD.IS',n:'Kardemir D'},{s:'ASTOR.IS',n:'Astor'},{s:'ENKAI.IS',n:'Enka'},{s:'ALARK.IS',n:'Alarko'},{s:'GUBRF.IS',n:'Gübre Fab.'},{s:'VESTL.IS',n:'Vestel'},{s:'ARCLK.IS',n:'Arçelik'}],
     US: [{s:'AAPL',n:'Apple'},{s:'MSFT',n:'Microsoft'},{s:'NVDA',n:'Nvidia'},{s:'TSLA',n:'Tesla'},{s:'AMZN',n:'Amazon'},{s:'GOOGL',n:'Google'},{s:'META',n:'Meta'},{s:'AMD',n:'AMD'},{s:'NFLX',n:'Netflix'},{s:'INTC',n:'Intel'},{s:'BABA',n:'Alibaba'},{s:'PYPL',n:'PayPal'},{s:'CRM',n:'Salesforce'},{s:'ADBE',n:'Adobe'},{s:'CSCO',n:'Cisco'},{s:'JPM',n:'JPMorgan'},{s:'V',n:'Visa'},{s:'WMT',n:'Walmart'},{s:'PG',n:'Procter & Gamble'},{s:'XOM',n:'Exxon Mobil'}],
     FOREX: [{s:'EURUSD=X',n:'EUR/USD'},{s:'GBPUSD=X',n:'GBP/USD'},{s:'USDJPY=X',n:'USD/JPY'},{s:'USDTRY=X',n:'USD/TRY'},{s:'GC=F',n:'Gold'},{s:'SI=F',n:'Silver'},{s:'CL=F',n:'Crude Oil'},{s:'NG=F',n:'Natural Gas'},{s:'HG=F',n:'Copper'},{s:'PL=F',n:'Platinum'},{s:'PA=F',n:'Palladium'}]
@@ -475,23 +607,249 @@ const AssetManager = {
 
 /* --- 3. INDICATORS --- */
 const Indicators = {
+    // Helper: Exponential Moving Average
+    ema: (data, period) => {
+        let k = 2 / (period + 1);
+        let r = new Array(data.length).fill(null);
+        let sum = 0;
+        // Simple MA for first value
+        for(let i=0; i<period && i<data.length; i++) sum += data[i].close;
+        if(data.length >= period) {
+            r[period-1] = sum/period;
+            for(let i=period; i<data.length; i++) {
+                r[i] = (data[i].close * k) + (r[i-1] * (1-k));
+            }
+        }
+        return r;
+    },
+
+    // Helper: Simple Moving Average (Array Input)
+    sma: (arr, period) => {
+        let r = new Array(arr.length).fill(null);
+        let sum = 0;
+        for (let i = 0; i < arr.length; i++) {
+            sum += arr[i];
+            if (i >= period) sum -= arr[i - period];
+            if (i >= period - 1) r[i] = sum / period;
+        }
+        return r;
+    },
+
+    // Helper: Bollinger Bands
+    bb: (d, len, mult) => {
+        let r = [];
+        for(let i=0; i<d.length; i++) {
+            if(i < len - 1) { r.push({u:null, l:null, m:null}); continue; }
+            let slice = d.slice(i - len + 1, i + 1);
+            let sum = 0;
+            slice.forEach(c => sum += c.close);
+            let mean = sum / len;
+            let sqDiffSum = 0;
+            slice.forEach(c => sqDiffSum += Math.pow(c.close - mean, 2));
+            let stdDev = Math.sqrt(sqDiffSum / len);
+            r.push({ u: mean + (stdDev * mult), l: mean - (stdDev * mult), m: mean });
+        }
+        return r;
+    },
+    
     superTrend:(d,p,f)=>{let r=[],tr=[0];for(let i=1;i<d.length;i++)tr.push(Math.max(d[i].high-d[i].low,Math.abs(d[i].high-d[i-1].close),Math.abs(d[i].low-d[i-1].close)));let a=new Array(d.length).fill(0),s=0;for(let i=0;i<p;i++)s+=tr[i];a[p-1]=s/p;for(let i=p;i<d.length;i++)a[i]=(a[i-1]*(p-1)+tr[i])/p;let dir=1;for(let i=0;i<d.length;i++){if(i<p){r.push({d:1});continue}let m=(d[i].high+d[i].low)/2,bu=m+f*a[i],bl=m-f*a[i],pu=r[i-1].u||bu,pl=r[i-1].l||bl,fu=(bu<pu||d[i-1].close>pu)?bu:pu,fl=(bl>pl||d[i-1].close<pl)?bl:pl;if(r[i-1].d===1&&d[i].close<fl)dir=-1;else if(r[i-1].d===-1&&d[i].close>fu)dir=1;else dir=r[i-1].d;let sig=null;if(dir===1&&r[i-1].d===-1)sig='LONG';if(dir===-1&&r[i-1].d===1)sig='SHORT';r.push({d:dir,u:fu,l:fl,s:sig});}return r;},
     psar:(d,s,i,m)=>{let r=new Array(d.length).fill({}),l=true,a=s,sar=d[0].low,ep=d[0].high;for(let k=1;k<d.length;k++){sar=sar+a*(ep-sar);if(l){if(d[k].low<sar){l=false;sar=ep;ep=d[k].low;a=s}else{if(d[k].high>ep){ep=d[k].high;a=Math.min(a+i,m)}}}else{if(d[k].high>sar){l=true;sar=ep;ep=d[k].high;a=s}else{if(d[k].low<ep){ep=d[k].low;a=Math.min(a+i,m)}}}let sig=null;if(l&&!r[k-1].l)sig='LONG';if(!l&&r[k-1].l)sig='SHORT';r[k]={sar,l,s:sig};}return r;},
     stoch:(d,kP,dP)=>{let r=[],k=[],l=0,h=0;for(let i=0;i<d.length;i++){if(i<kP){r.push({k:50,s:null});continue}let sl=d.slice(i-kP+1,i+1);l=Math.min(...sl.map(x=>x.low));h=Math.max(...sl.map(x=>x.high));k.push(((d[i].close-l)/(h-l))*100);}let dL=[];for(let i=0;i<k.length;i++){if(i<dP){dL.push(50);continue}let s=0;for(let j=0;j<dP;j++)s+=k[i-j];dL.push(s/dP);}return k.map((v,i)=>{let sig=null;if(i>0){if(v>dL[i]&&k[i-1]<=dL[i-1]&&v<20)sig='LONG';if(v<dL[i]&&k[i-1]>=dL[i-1]&&v>80)sig='SHORT'}return{s:sig,k:v};});},
     turtle:(d,e,x)=>{let r=[];for(let i=0;i<d.length;i++){if(i<e){r.push({s:null});continue}let h=Math.max(...d.slice(i-e,i).map(z=>z.high)),l=Math.min(...d.slice(i-e,i).map(z=>z.low));let s=null;if(d[i].close>h)s='LONG';if(d[i].close<l)s='SHORT';r.push({s});}return r;},
     emaCross:(d,f,s)=>{const ema=(a,p)=>{let r=[],k=2/(p+1),e=a[0].close;a.forEach(z=>{e=z.close*k+e*(1-k);r.push(e)});return r};let ef=ema(d,f),es=ema(d,s);return ef.map((v,i)=>{let sig=null;if(i>0){if(v>es[i]&&ef[i-1]<=es[i-1])sig='LONG';if(v<es[i]&&ef[i-1]>=es[i-1])sig='SHORT'}return{s:sig}})},
-    rsi:(d,p)=>{let r=[],g=0,l=0;for(let i=0;i<d.length;i++){if(i===0){r.push({time:d[i].time,value:50});continue}let c=d[i].close-d[i-1].close;let ug=c>0?c:0,ul=c<0?-c:0;if(i<p){g+=ug;l+=ul;r.push({time:d[i].time,value:50})}else if(i===p){g/=p;l/=p;r.push({time:d[i].time,value:100-(100/(1+g/l))})}else{g=(g*(p-1)+ug)/p;l=(l*(p-1)+ul)/p;r.push({time:d[i].time,value:l===0?100:100-(100/(1+g/l))})}}return r;}
+    rsi:(d,p)=>{let r=[],g=0,l=0;for(let i=0;i<d.length;i++){if(i===0){r.push({time:d[i].time,value:50});continue}let c=d[i].close-d[i-1].close;let ug=c>0?c:0,ul=c<0?-c:0;if(i<p){g+=ug;l+=ul;r.push({time:d[i].time,value:50})}else if(i===p){g/=p;l/=p;r.push({time:d[i].time,value:100-(100/(1+g/l))})}else{g=(g*(p-1)+ug)/p;l=(l*(p-1)+ul)/p;r.push({time:d[i].time,value:l===0?100:100-(100/(1+g/l))})}}return r;},
+    
+    rsiStrategy:(d, len, overbought, oversold) => {
+        let vals = Indicators.rsi(d, len).map(x=>x.value);
+        return vals.map((v, i) => {
+            let sig = null;
+            if (i > 0) {
+                if (v > oversold && vals[i-1] <= oversold) sig = 'LONG';
+                if (v < overbought && vals[i-1] >= overbought) sig = 'SHORT';
+            }
+            return { s: sig };
+        });
+    },
+
+    macd: (d, fast, slow, signal) => {
+        let emaF = Indicators.ema(d, fast);
+        let emaS = Indicators.ema(d, slow);
+        let macdLine = emaF.map((v,i) => (v!==null && emaS[i]!==null) ? v - emaS[i] : 0);
+        let k = 2 / (signal + 1);
+        let sigLine = new Array(d.length).fill(0);
+        let sum = 0, count = 0;
+        for(let i=0; i<d.length; i++) {
+            if(macdLine[i]!==0 || i > slow) {
+                if(count < signal) { sum += macdLine[i]; count++; sigLine[i]=sum/count; }
+                else { sigLine[i] = (macdLine[i] * k) + (sigLine[i-1] * (1-k)); }
+            }
+        }
+        return macdLine.map((v, i) => {
+            let sig = null;
+            if (i > slow + signal) {
+                if (v > sigLine[i] && macdLine[i-1] <= sigLine[i-1]) sig = 'LONG';
+                if (v < sigLine[i] && macdLine[i-1] >= sigLine[i-1]) sig = 'SHORT';
+            }
+            return { s: sig };
+        });
+    },
+
+    vwap: (d, period) => {
+        let r = [];
+        for(let i=0; i<d.length; i++) {
+            let start = Math.max(0, i - period + 1);
+            let sumPV = 0;
+            let sumV = 0;
+            for(let j=start; j<=i; j++) {
+                let p = (d[j].high + d[j].low + d[j].close) / 3;
+                sumPV += p * d[j].value;
+                sumV += d[j].value;
+            }
+            let vwap = sumV ? sumPV / sumV : d[i].close;
+            let sig = null;
+            if (i>0) {
+                 if(d[i].close > vwap && d[i-1].close <= vwap) sig = 'LONG';
+                 if(d[i].close < vwap && d[i-1].close >= vwap) sig = 'SHORT';
+            }
+            r.push({s:sig});
+        }
+        return r;
+    },
+
+    adx: (d, len, threshold) => {
+        let tr=[], pdm=[], mdm=[];
+        for(let i=0; i<d.length; i++){
+            if(i===0) { tr.push(0); pdm.push(0); mdm.push(0); continue; }
+            let h=d[i].high, l=d[i].low, c=d[i].close, pc=d[i-1].close;
+            tr.push(Math.max(h-l, Math.abs(h-pc), Math.abs(l-pc)));
+            let up = h - d[i-1].high;
+            let down = d[i-1].low - l;
+            pdm.push((up > down && up > 0) ? up : 0);
+            mdm.push((down > up && down > 0) ? down : 0);
+        }
+        const smooth = (arr, n) => {
+            let res = new Array(arr.length).fill(0);
+            let sum=0; for(let i=0;i<n;i++) sum+=arr[i]; res[n-1]=sum;
+            for(let i=n; i<arr.length; i++) res[i] = res[i-1] - (res[i-1]/n) + arr[i];
+            return res;
+        };
+        let sTR = smooth(tr, len);
+        let sPDM = smooth(pdm, len);
+        let sMDM = smooth(mdm, len);
+        let dx = [];
+        for(let i=0; i<d.length; i++){
+            let diPlus = (sTR[i]===0)?0 : 100*(sPDM[i]/sTR[i]);
+            let diMinus = (sTR[i]===0)?0 : 100*(sMDM[i]/sTR[i]);
+            let sum = diPlus + diMinus;
+            dx.push( sum===0 ? 0 : 100 * Math.abs(diPlus-diMinus)/sum );
+        }
+        let adxLine = smooth(dx, len);
+        return adxLine.map((v, i) => {
+            let sig = null;
+            if(i > len*2) {
+                let diPlus = (sTR[i]===0)?0 : 100*(sPDM[i]/sTR[i]);
+                let diMinus = (sTR[i]===0)?0 : 100*(sMDM[i]/sTR[i]);
+                let prevDiPlus = 100*(sPDM[i-1]/sTR[i-1]);
+                let prevDiMinus = 100*(sMDM[i-1]/sTR[i-1]);
+                if (v > threshold) {
+                    if (diPlus > diMinus && prevDiPlus <= prevDiMinus) sig = 'LONG';
+                    if (diPlus < diMinus && prevDiPlus >= prevDiMinus) sig = 'SHORT';
+                }
+            }
+            return { s: sig };
+        });
+    },
+
+    williams: (d, len, level) => {
+        let r = [];
+        for(let i=0; i<d.length; i++) {
+            if(i < len) { r.push({s:null}); continue; }
+            let slice = d.slice(i-len+1, i+1);
+            let hh = Math.max(...slice.map(x=>x.high));
+            let ll = Math.min(...slice.map(x=>x.low));
+            let wr = -100 * (hh - d[i].close) / (hh - ll);
+            let sig = null;
+            let lower = -100 + level;
+            let upper = -level;
+            let prevSlice = d.slice(i-len, i);
+            let phh = Math.max(...prevSlice.map(x=>x.high));
+            let pll = Math.min(...prevSlice.map(x=>x.low));
+            let pwr = -100 * (phh - d[i-1].close) / (phh - pll);
+            if (wr > lower && pwr <= lower) sig = 'LONG';
+            if (wr < upper && pwr >= upper) sig = 'SHORT';
+            r.push({s:sig});
+        }
+        return r;
+    },
+
+    // --- NEW CRYPTO LIQUIDATION ALGORITHM ---
+    // "LSVT" - Liquidation Sweep & Volume Trend
+    lsvt: (d, bbLen, bbMult, volLen, volFactor) => {
+        // 1. Bollinger Bands for Volatility Extremes (Liquidation Zones)
+        let bands = Indicators.bb(d, bbLen, bbMult);
+        
+        // 2. Volume SMA for Relative Volume (RVOL)
+        let vols = d.map(x => x.value);
+        let volSma = Indicators.sma(vols, volLen);
+        
+        // 3. RSI Filter (Avoid Buying top or Selling bottom blindly)
+        let rsi = Indicators.rsi(d, 14).map(x=>x.value);
+
+        return d.map((curr, i) => {
+            let sig = null;
+            if (i > bbLen && bands[i].u !== null) {
+                let prev = d[i-1];
+                let b = bands[i];
+                let vAvg = volSma[i];
+
+                // LIQUIDATION SWEEP LONG (Bear Trap)
+                // Price wicked below lower band but closed above it (rejection)
+                // Volume is significantly higher than average (liquidation/capitulation)
+                if (
+                    curr.low < b.l &&             // WICK BELOW
+                    curr.close > b.l &&           // CLOSE INSIDE
+                    curr.value > (vAvg * volFactor) && // HIGH VOLUME
+                    rsi[i] < 55                   // NOT OVERBOUGHT YET
+                ) {
+                    sig = 'LONG';
+                }
+
+                // LIQUIDATION SWEEP SHORT (Bull Trap)
+                // Price wicked above upper band but closed below it
+                else if (
+                    curr.high > b.u &&            // WICK ABOVE
+                    curr.close < b.u &&           // CLOSE INSIDE
+                    curr.value > (vAvg * volFactor) && // HIGH VOLUME
+                    rsi[i] > 45                   // NOT OVERSOLD YET
+                ) {
+                    sig = 'SHORT';
+                }
+            }
+            return { s: sig };
+        });
+    }
 };
 
-/* --- 4. LOGIC ENGINE (MOVED UP FOR SAFETY) --- */
+/* --- 4. LOGIC ENGINE --- */
 const Logic={
     backtest:(d,st,p, useTpSl=false, tpPct=0, slPct=0)=>{
         let sigs=[];
+        // Original
         if(st==='supertrend')sigs=Indicators.superTrend(d,p.st_p,p.st_f).map(x=>x.s);
         if(st==='psar')sigs=Indicators.psar(d,p.ps_s,p.ps_i,p.ps_m).map(x=>x.s);
         if(st==='stoch')sigs=Indicators.stoch(d,p.st_k,p.st_d).map(x=>x.s);
         if(st==='turtle')sigs=Indicators.turtle(d,p.tt_in,p.tt_out).map(x=>x.s);
         if(st==='emacross')sigs=Indicators.emaCross(d,p.ema_f,p.ema_s).map(x=>x.s);
+        
+        // New
+        if(st==='rsi_strat') sigs=Indicators.rsiStrategy(d, p.rsi_len, p.rsi_ob, p.rsi_os).map(x=>x.s);
+        if(st==='macd') sigs=Indicators.macd(d, p.mac_f, p.mac_s, p.mac_sig).map(x=>x.s);
+        if(st==='vwap') sigs=Indicators.vwap(d, p.vw_p).map(x=>x.s);
+        if(st==='adx') sigs=Indicators.adx(d, p.adx_len, p.adx_th).map(x=>x.s);
+        if(st==='williams') sigs=Indicators.williams(d, p.w_len, p.w_lvl).map(x=>x.s);
+        
+        // CRYPTO LIQUIDATION ALGO
+        if(st==='lsvt') sigs=Indicators.lsvt(d, p.bb_len, p.bb_mult, p.vol_len, p.vol_factor).map(x=>x.s);
         
         let tr=[],mk=[],pos=null,w=0,bal=parseFloat(App.safeVal('balance') || 1000),ls=null;
         
@@ -591,27 +949,45 @@ const ConfigManager={
     }
 };
 
-/* --- 6. CORE OPTIMIZER ENGINE (UNIFIED) --- */
+/* --- 6. OPTIMIZER ENGINE --- */
 const Optimizer={
-    // Shared Strategy Variations
+    // Updated Strategy Variations
     getV:(s)=>{let v=[];
-        if(s==='supertrend')for(let p=5;p<40;p+=2)for(let f=1;f<6;f+=0.5)v.push({st_p:p,st_f:f});
-        if(s==='psar')for(let x=0.01;x<0.05;x+=0.01)v.push({ps_s:x,ps_i:x,ps_m:0.2});
-        if(s==='stoch')for(let k=5;k<30;k+=2)for(let d=2;d<10;d+=1)v.push({st_k:k,st_d:d});
-        if(s==='turtle')for(let i=10;i<50;i+=5)for(let o=5;o<25;o+=2)if(i>o)v.push({tt_in:i,tt_out:o});
-        if(s==='emacross')for(let f=5;f<30;f+=2)for(let sl=10;sl<100;sl+=5)if(sl>f)v.push({ema_f:f,ema_s:sl});
+        if(s==='supertrend') for(let p=5;p<40;p+=2)for(let f=1;f<6;f+=0.5)v.push({st_p:p,st_f:f});
+        if(s==='psar') for(let x=0.01;x<0.05;x+=0.01)v.push({ps_s:x,ps_i:x,ps_m:0.2});
+        if(s==='stoch') for(let k=5;k<30;k+=2)for(let d=2;d<10;d+=1)v.push({st_k:k,st_d:d});
+        if(s==='turtle') for(let i=10;i<50;i+=5)for(let o=5;o<25;o+=2)if(i>o)v.push({tt_in:i,tt_out:o});
+        if(s==='emacross') for(let f=5;f<30;f+=2)for(let sl=10;sl<100;sl+=5)if(sl>f)v.push({ema_f:f,ema_s:sl});
+        
+        // Classic Algos
+        if(s==='rsi_strat') for(let l=7;l<25;l+=1) for(let ob=65;ob<=85;ob+=5) for(let os=15;os<=35;os+=5) v.push({rsi_len:l, rsi_ob:ob, rsi_os:os});
+        if(s==='macd') for(let f=8;f<20;f+=2) for(let sl=20;sl<40;sl+=2) for(let sg=5;sg<15;sg+=1) if(sl>f) v.push({mac_f:f, mac_s:sl, mac_sig:sg});
+        if(s==='vwap') for(let p=10;p<100;p+=10) v.push({vw_p:p});
+        if(s==='adx') for(let l=7;l<28;l+=2) for(let t=15;t<=35;t+=5) v.push({adx_len:l, adx_th:t});
+        if(s==='williams') for(let l=10;l<50;l+=5) for(let lv=10;lv<=30;lv+=5) v.push({w_len:l, w_lvl:lv});
+        
+        // NEW: LSVT OPTIMIZATION RANGES
+        // bb_len: 20 is standard, test up to 50
+        // bb_mult: 2.0 is standard deviation, test 2.0 - 3.0 (higher = stronger wick required)
+        // vol_factor: 1.5x to 3.0x average volume (higher = more liquidations)
+        if(s==='lsvt') {
+            for(let bbl=20; bbl<=50; bbl+=10) {
+                for(let bbm=2.0; bbm<=3.0; bbm+=0.5) {
+                    for(let vf=1.5; vf<=3.5; vf+=0.5) {
+                        v.push({bb_len:bbl, bb_mult:bbm, vol_len:20, vol_factor:vf});
+                    }
+                }
+            }
+        }
+
         return v;
     },
 
-    // CENTRAL OPTIMIZATION LOGIC (Shared by Single & Scanner)
     optimizeSymbol: async (data, strat, useTpSl, updateCallback) => {
         const v = Optimizer.getV(strat); 
-        
-        // Define TP/SL Ranges based on flag
         const tpRanges = useTpSl ? [1.5, 3.0, 5.0, 8.0] : [0];
         const slRanges = useTpSl ? [1.0, 2.0, 4.0] : [0];
 
-        // Flatten into simple array of test cases
         let testCases = [];
         for(const p of v) {
             for(const tp of tpRanges) {
@@ -620,44 +996,35 @@ const Optimizer={
                 }
             }
         }
+        
+        if(testCases.length === 0) return null; // No params defined or error
 
         let best = -Infinity; 
         let bestResult = null;
-        
-        // Batch Process
         const BATCH = 500; 
+        
         for(let i=0; i<testCases.length; i+=BATCH){
             const slice = testCases.slice(i, i+BATCH);
             for(const c of slice) {
-                // Pass specific TP/SL to backtest engine
                 const isTpSlActive = c.tp > 0 || c.sl > 0; 
                 const r = Logic.backtest(data, strat, c.p, isTpSlActive, c.tp, c.sl);
-                
                 if(r.pnl > best) { 
                     best = r.pnl; 
-                    bestResult = {
-                        p: c.p, 
-                        tp: c.tp, 
-                        sl: c.sl, 
-                        stats: r
-                    }; 
+                    bestResult = { p: c.p, tp: c.tp, sl: c.sl, stats: r }; 
                 }
             }
             if(updateCallback) updateCallback((i/testCases.length)*100);
-            await new Promise(r=>setTimeout(r,0)); // Yield to UI
+            await new Promise(r=>setTimeout(r,0));
         }
-        
         return bestResult;
     },
 
-    // Single Asset Optimization
     runSingle:async()=>{
         const s=App.safeVal('strategy'),d=App.data;if(!d.length)return;
         const useTpSl = document.getElementById('use-tpsl').checked;
 
         App.modal(true,'Optimize','Hesaplanıyor...',0); await new Promise(r=>setTimeout(r,100));
 
-        // Use Shared Logic
         const res = await Optimizer.optimizeSymbol(d, s, useTpSl, (pct) => {
              App.modal(true,'Optimize','Taranıyor...', pct);
         });
@@ -665,7 +1032,6 @@ const Optimizer={
         if(res){
             const bp = res.p;
             for(let k in bp) if(document.getElementById(k)) document.getElementById(k).value=bp[k];
-            
             if(useTpSl) {
                 document.getElementById('tp-val').value = res.tp;
                 document.getElementById('sl-val').value = res.sl;
@@ -692,23 +1058,15 @@ const Scanner={
             let d = null; try { d = await App.fetchData(symName); } catch(e) { console.error(e); }
 
             if(d&&d.length>50){
-                // USE SHARED LOGIC
                 const optRes = await Optimizer.optimizeSymbol(d, s, useTpSl, null);
-                
                 if(optRes) {
                     const run = optRes.stats;
                     let lastT = run.openPos ? run.openPos.t : (run.trades.length>0 ? run.trades[run.trades.length-1].et : 0);
                     
                     Scanner.results[symName]={
-                        bestParams: optRes.p, 
-                        bestTp: optRes.tp, 
-                        bestSl: optRes.sl, 
-                        pnl: run.pnl, 
-                        winRate: run.winRate, 
-                        trades: run.trades.length, 
-                        lastSignal: run.lastSignal, 
-                        openPos: run.openPos, 
-                        lastEntryTime: lastT
+                        bestParams: optRes.p, bestTp: optRes.tp, bestSl: optRes.sl, 
+                        pnl: run.pnl, winRate: run.winRate, trades: run.trades.length, 
+                        lastSignal: run.lastSignal, openPos: run.openPos, lastEntryTime: lastT
                     };
                 }
             }
@@ -737,10 +1095,9 @@ const Scanner={
                 const res=Scanner.results[s];
                 const b=res.bestParams;
                 for(let k in b) if(document.getElementById(k)) document.getElementById(k).value=b[k];
-                // Apply Optimized TP/SL to UI if they exist (non-zero)
                 if(res.bestTp !== undefined && (res.bestTp > 0 || res.bestSl > 0)) {
                     document.getElementById('use-tpsl').checked = true;
-                    App.updateTpSlUI(); // Ensure visibility
+                    App.updateTpSlUI();
                     document.getElementById('tp-val').value = res.bestTp;
                     document.getElementById('sl-val').value = res.bestSl;
                 } else {
@@ -756,10 +1113,32 @@ const Scanner={
     }
 };
 
-/* --- 7. APP CONTROLLER (MOVED DOWN) --- */
+/* --- 7. APP CONTROLLER --- */
 const App = {
     chart:null, cSeries:null, vSeries:null, rsiSeries:null, data:[], intervalId:null,
-    paramsDef:{supertrend:[{id:'st_p',l:'Periyot',v:10},{id:'st_f',l:'Faktör',v:3,s:0.1}],psar:[{id:'ps_s',l:'Başlangıç',v:0.02,s:0.01},{id:'ps_i',l:'Adım',v:0.02,s:0.01},{id:'ps_m',l:'Max',v:0.2,s:0.01}],stoch:[{id:'st_k',l:'K',v:14},{id:'st_d',l:'D',v:3}],turtle:[{id:'tt_in',l:'Giriş',v:20},{id:'tt_out',l:'Çıkış',v:10}],emacross:[{id:'ema_f',l:'Fast',v:9},{id:'ema_s',l:'Slow',v:21}]},
+    
+    // DEFINITIONS FOR NEW PARAMS
+    paramsDef:{
+        supertrend:[{id:'st_p',l:'Periyot',v:10},{id:'st_f',l:'Faktör',v:3,s:0.1}],
+        psar:[{id:'ps_s',l:'Başlangıç',v:0.02,s:0.01},{id:'ps_i',l:'Adım',v:0.02,s:0.01},{id:'ps_m',l:'Max',v:0.2,s:0.01}],
+        stoch:[{id:'st_k',l:'K',v:14},{id:'st_d',l:'D',v:3}],
+        turtle:[{id:'tt_in',l:'Giriş',v:20},{id:'tt_out',l:'Çıkış',v:10}],
+        emacross:[{id:'ema_f',l:'Fast',v:9},{id:'ema_s',l:'Slow',v:21}],
+        // NEW ALGOS
+        rsi_strat:[{id:'rsi_len',l:'RSI Periyot',v:14},{id:'rsi_ob',l:'Aşırı Alım (Sat)',v:70},{id:'rsi_os',l:'Aşırı Satım (Al)',v:30}],
+        macd:[{id:'mac_f',l:'Hızlı (Fast)',v:12},{id:'mac_s',l:'Yavaş (Slow)',v:26},{id:'mac_sig',l:'Sinyal',v:9}],
+        vwap:[{id:'vw_p',l:'Rolling Period',v:20}],
+        adx:[{id:'adx_len',l:'ADX Periyot',v:14},{id:'adx_th',l:'Trend Eşiği',v:25}],
+        williams:[{id:'w_len',l:'Williams Periyot',v:14},{id:'w_lvl',l:'Alt/Üst Sınır (-)',v:20}],
+        
+        // --- LSVT PARAMS ---
+        lsvt:[
+            {id:'bb_len',l:'Likidasyon Alanı (BB Len)',v:20},
+            {id:'bb_mult',l:'Sapma (Std Dev)',v:2.0,s:0.1},
+            {id:'vol_len',l:'Hacim Ort. Periyodu',v:20},
+            {id:'vol_factor',l:'Hacim Patlama Çarpanı',v:2.0,s:0.1}
+        ]
+    },
     
     safeVal: (id) => { const el = document.getElementById(id); return el ? el.value : ''; },
 
@@ -790,10 +1169,8 @@ const App = {
             const el = document.getElementById('crypto-scanner-area'); 
             if(el) el.style.display=e.target.value==='CRYPTO'?'block':'none'; 
             App.updateHeaders(); 
-            // Auto update limits
             const lim = document.getElementById('limit');
             if(lim) lim.value = (e.target.value === 'CRYPTO') ? '500' : '200';
-            // Button text update
             const scanBtn = document.getElementById('scan-btn');
             if(scanBtn) scanBtn.innerText = `🚀 TÜM PİYASAYI TARA (${ASSETS[e.target.value].length})`;
         });
@@ -802,10 +1179,9 @@ const App = {
             const res = Scanner.results[val];
             const b = res.bestParams;
             for(let k in b) if(document.getElementById(k)) document.getElementById(k).value=b[k]; 
-            // Apply Optimized TP/SL to UI if they exist (non-zero)
             if(res.bestTp !== undefined && (res.bestTp > 0 || res.bestSl > 0)) {
                 document.getElementById('use-tpsl').checked = true;
-                App.updateTpSlUI(); // Ensure visibility
+                App.updateTpSlUI();
                 document.getElementById('tp-val').value = res.bestTp;
                 document.getElementById('sl-val').value = res.bestSl;
             } else {
@@ -819,22 +1195,15 @@ const App = {
         bind('refresh', 'change', App.setTimer);
 
         App.loadSyms(); App.renderUI(); App.setTimer(); App.run(); App.updateHeaders();
-        // Init Button Text
         document.getElementById('scan-btn').innerText = `🚀 TÜM PİYASAYI TARA (${ASSETS.CRYPTO.length})`;
     },
 
     toggleTpSlManual: () => {
         const check = document.getElementById('use-tpsl');
-        // Just toggle visibility based on current checked state when clicked via header
         check.checked = !check.checked; 
         App.updateTpSlUI();
     },
     
-    toggleTpSl: () => {
-        // Triggered by actual checkbox change (stops propagation in HTML)
-        App.updateTpSlUI();
-    },
-
     toggleScanOpt: () => {
         const check = document.getElementById('scan-tpsl-opt');
         check.checked = !check.checked;
@@ -845,8 +1214,18 @@ const App = {
         document.getElementById('tpsl-params').classList.toggle('active', check.checked);
     },
 
+    openMenu: () => {
+        document.querySelector('aside').classList.add('open');
+        document.getElementById('menu-backdrop').classList.add('active');
+    },
+
+    closeMenu: () => {
+        document.querySelector('aside').classList.remove('open');
+        document.getElementById('menu-backdrop').classList.remove('active');
+    },
+
     sTab: (id) => { document.querySelectorAll('.st-tab').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.sidebar-content').forEach(x=>x.classList.remove('active')); document.querySelector(`.st-tab[onclick="App.sTab('${id}')"]`).classList.add('active'); document.getElementById(`sb-${id}`).classList.add('active'); },
-    updateHeaders: () => { const symFull = App.safeVal('symbol'); const sym = symFull.split('|')[0].trim(); const int = App.safeVal('interval'); const mTab = document.getElementById('tab-head-market'); if(mTab && sym) mTab.innerText = `${sym} (${int})`; const strat = App.safeVal('strategy'); const sTab = document.getElementById('tab-head-strat'); if(sTab && strat) { let pVals = []; App.paramsDef[strat].forEach(p => { const el = document.getElementById(p.id); if(el) pVals.push(el.value); }); sTab.innerText = `${strat.charAt(0).toUpperCase() + strat.slice(1)} [${pVals.join(', ')}]`; } },
+    updateHeaders: () => { const symFull = App.safeVal('symbol'); const sym = symFull.split('|')[0].trim(); const int = App.safeVal('interval'); const mTab = document.getElementById('tab-head-market'); if(mTab && sym) mTab.innerText = `${sym} (${int})`; const strat = App.safeVal('strategy'); const sTab = document.getElementById('tab-head-strat'); if(sTab && strat) { let pVals = []; App.paramsDef[strat].forEach(p => { const el = document.getElementById(p.id); if(el) pVals.push(el.value); }); sTab.innerText = `${strat.toUpperCase()} [${pVals.join(', ')}]`; } },
     loadSyms:()=>{ const mEl = document.getElementById('market'); const sEl = document.getElementById('symbol'); if(!mEl || !sEl) return; const m = mEl.value; sEl.innerHTML=''; ASSETS[m].forEach(x=>{let o=document.createElement('option');o.value=x.s;o.text=`${x.s} | ${x.n}`;sEl.add(o)}); },
     renderUI:()=>{ const s = App.safeVal('strategy'); const c = document.getElementById('params'); if(!c || !s) return; c.innerHTML=''; App.paramsDef[s].forEach(p=>{c.innerHTML+=`<div><label>${p.l}</label><input type="number" id="${p.id}" value="${p.v}" step="${p.s||1}" onchange="App.updateHeaders()"></div>`}); App.updateHeaders(); },
     setTimer:()=>{ if(App.intervalId) clearInterval(App.intervalId); const el = document.getElementById('refresh'); if(!el) return; const ms = parseInt(el.value); if(ms > 0) App.intervalId=setInterval(()=>App.run(true), ms); },
@@ -904,7 +1283,6 @@ const App = {
         const s=App.safeVal('strategy'); const p={};
         if(App.paramsDef[s]) App.paramsDef[s].forEach(k=>{const el=document.getElementById(k.id); if(el) p[k.id]=parseFloat(el.value)});
         
-        // TPSL
         const useTpSl = document.getElementById('use-tpsl').checked;
         const tpVal = parseFloat(App.safeVal('tp-val'));
         const slVal = parseFloat(App.safeVal('sl-val'));
@@ -949,7 +1327,6 @@ const App = {
     }
 };
 
-// Safe Start
 if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', App.init); } else { App.init(); }
 </script>
 </body>
