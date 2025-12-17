@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProTrade AI V12 - Fixed Cache UI</title>
+    <title>ProTrade AI V16 - Precision & UI Fix</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         :root {
@@ -13,8 +13,8 @@
             --text-main: #e6edf3;
             --text-dim: #848d97;
             --accent: #2f81f7;
-            --green: #2ea043;
-            --red: #da3633;
+            --green: #089981; /* TradingView Green */
+            --red: #f23645;   /* TradingView Red */
             --rsi-color: #a371f7;
             --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
@@ -71,13 +71,7 @@
         #cache-info, #opt-cache-info { font-size: 0.75rem; color: #8b949e; margin-top: 5px; font-style: italic; min-height: 15px; line-height: 1.4; text-align:center;}
         #opt-cache-info { color: var(--green); margin-bottom: 5px; }
 
-        /* RED BUTTONS */
-        .btn-red { 
-            background: #da3633; border: 1px solid #b62324; color: white; 
-            padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; 
-            margin-top: 8px; width: 100%; text-align: center; font-weight: 600; 
-            display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition:0.2s;
-        }
+        .btn-red { background: #da3633; border: 1px solid #b62324; color: white; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; margin-top: 8px; width: 100%; text-align: center; font-weight: 600; display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition:0.2s; }
         .btn-red:hover { background: #b62324; }
         .d-block { display: block !important; }
 
@@ -118,8 +112,8 @@
         tbody tr:hover { background: #1c2128; cursor: pointer; }
 
         .badge { padding: 3px 8px; border-radius: 4px; font-weight: 700; font-size: 0.7rem; display: ruby-text;}
-        .b-long { background: rgba(46, 160, 67, 0.15); color: #3fb950; border: 1px solid rgba(46, 160, 67, 0.4); }
-        .b-short { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid rgba(248, 81, 73, 0.4); }
+        .b-long { background: rgba(8, 153, 129, 0.15); color: #089981; border: 1px solid rgba(8, 153, 129, 0.4); }
+        .b-short { background: rgba(242, 54, 69, 0.15); color: #f23645; border: 1px solid rgba(242, 54, 69, 0.4); }
         .b-open { background: rgba(56, 139, 253, 0.15); color: #58a6ff; border: 1px solid rgba(56, 139, 253, 0.4); }
         .b-neutral { background: #30363d; color: #8b949e; }
 
@@ -394,12 +388,9 @@
 </main>
 
 <script>
-/* --- 0. CACHE DATABASE (IndexedDB) --- */
+/* --- 0. CACHE DATABASE --- */
 const CacheDB = {
-    dbName: 'ProTradeDB_V3', 
-    version: 2,
-    db: null,
-
+    dbName: 'ProTradeDB_V3', version: 2, db: null,
     open: () => {
         return new Promise((resolve, reject) => {
             if(CacheDB.db) return resolve(CacheDB.db);
@@ -413,7 +404,6 @@ const CacheDB = {
             request.onerror = (e) => reject(e);
         });
     },
-
     get: async (storeName, key) => {
         const db = await CacheDB.open();
         return new Promise((resolve) => {
@@ -424,7 +414,6 @@ const CacheDB = {
             req.onerror = () => resolve(null);
         });
     },
-
     put: async (storeName, key, data) => {
         const db = await CacheDB.open();
         return new Promise((resolve) => {
@@ -434,7 +423,6 @@ const CacheDB = {
             tx.oncomplete = () => resolve();
         });
     },
-
     delete: async (storeName, key) => {
         const db = await CacheDB.open();
         return new Promise((resolve) => {
@@ -444,7 +432,6 @@ const CacheDB = {
             tx.oncomplete = () => resolve();
         });
     },
-
     clearStore: async (storeName) => {
         const db = await CacheDB.open();
         return new Promise((resolve) => {
@@ -458,7 +445,6 @@ const CacheDB = {
             };
         });
     },
-
     clear: async () => { 
         const count = await CacheDB.clearStore('candles');
         App.toast(`${count} adet veri önbelleği temizlendi.`, 'green');
@@ -476,7 +462,6 @@ let ASSETS = {
     US: [{s:'AAPL',n:'Apple'},{s:'MSFT',n:'Microsoft'},{s:'NVDA',n:'Nvidia'},{s:'TSLA',n:'Tesla'},{s:'AMZN',n:'Amazon'},{s:'GOOGL',n:'Google'},{s:'META',n:'Meta'},{s:'AMD',n:'AMD'},{s:'NFLX',n:'Netflix'},{s:'INTC',n:'Intel'},{s:'BABA',n:'Alibaba'},{s:'PYPL',n:'PayPal'},{s:'CRM',n:'Salesforce'},{s:'ADBE',n:'Adobe'},{s:'CSCO',n:'Cisco'},{s:'JPM',n:'JPMorgan'},{s:'V',n:'Visa'},{s:'WMT',n:'Walmart'},{s:'PG',n:'Procter & Gamble'},{s:'XOM',n:'Exxon Mobil'}],
     FOREX: [{s:'EURUSD=X',n:'EUR/USD'},{s:'GBPUSD=X',n:'GBP/USD'},{s:'USDJPY=X',n:'USD/JPY'},{s:'USDTRY=X',n:'USD/TRY'},{s:'GC=F',n:'Gold'},{s:'SI=F',n:'Silver'},{s:'CL=F',n:'Crude Oil'},{s:'NG=F',n:'Natural Gas'},{s:'HG=F',n:'Copper'},{s:'PL=F',n:'Platinum'},{s:'PA=F',n:'Palladium'}]
 };
-
 const PROXIES = ['https://api.allorigins.win/raw?url=','https://corsproxy.io/?'];
 
 /* --- 2. ASSET MANAGER --- */
@@ -527,7 +512,6 @@ const Indicators = {
     turtle:(d,e,x)=>{let r=[];for(let i=0;i<d.length;i++){if(i<e){r.push({s:null});continue}let h=Math.max(...d.slice(i-e,i).map(z=>z.high)),l=Math.min(...d.slice(i-e,i).map(z=>z.low));let s=null;if(d[i].close>h)s='LONG';if(d[i].close<l)s='SHORT';r.push({s});}return r;},
     emaCross:(d,f,s)=>{const ema=(a,p)=>{let r=[],k=2/(p+1),e=a[0].close;a.forEach(z=>{e=z.close*k+e*(1-k);r.push(e)});return r};let ef=ema(d,f),es=ema(d,s);return ef.map((v,i)=>{let sig=null;if(i>0){if(v>es[i]&&ef[i-1]<=es[i-1])sig='LONG';if(v<es[i]&&ef[i-1]>=es[i-1])sig='SHORT'}return{s:sig}})},
     rsi:(d,p)=>{let r=[],g=0,l=0;for(let i=0;i<d.length;i++){if(i===0){r.push({time:d[i].time,value:50});continue}let c=d[i].close-d[i-1].close;let ug=c>0?c:0,ul=c<0?-c:0;if(i<p){g+=ug;l+=ul;r.push({time:d[i].time,value:50})}else if(i===p){g/=p;l/=p;r.push({time:d[i].time,value:100-(100/(1+g/l))})}else{g=(g*(p-1)+ug)/p;l=(l*(p-1)+ul)/p;r.push({time:d[i].time,value:l===0?100:100-(100/(1+g/l))})}}return r;},
-    
     rsiStrategy:(d, len, overbought, oversold) => {
         let vals = Indicators.rsi(d, len).map(x=>x.value);
         return vals.map((v, i) => { let sig = null; if (i > 0) { if (v > oversold && vals[i-1] <= oversold) sig = 'LONG'; if (v < overbought && vals[i-1] >= overbought) sig = 'SHORT'; } return { s: sig }; });
@@ -601,7 +585,7 @@ const Logic={
                 if (exitPrice) {
                     let pnl = (pos.type==='LONG' ? exitPrice - pos.p : pos.p - exitPrice) * pos.amt;
                     if(pnl>0) w++; tr.push({type:pos.type,et:pos.t,ep:pos.p,xt:current.time,xp:exitPrice,pnl,reason});
-                    mk.push({time:current.time,position:pos.type==='LONG'?'aboveBar':'belowBar',color:reason==='Take Profit'?'#2ea043':'#da3633',shape:'circle',text:reason,price:exitPrice});
+                    mk.push({time:current.time,position:pos.type==='LONG'?'aboveBar':'belowBar',color:reason==='Take Profit'?'#089981':'#f23645',shape:'circle',text:reason,price:exitPrice});
                     pos = null; continue; 
                 }
             }
@@ -615,10 +599,14 @@ const Logic={
             }
             if(!pos&&s){
                 pos={type:s,p:current.close,t:current.time,amt:bal/current.close};
-                mk.push({time:current.time,position:s==='LONG'?'belowBar':'aboveBar',color:s==='LONG'?'#238636':'#da3633',shape:s==='LONG'?'arrowUp':'arrowDown',text:s,price:current.close});
+                mk.push({time:current.time,position:s==='LONG'?'belowBar':'aboveBar',color:s==='LONG'?'#089981':'#f23645',shape:s==='LONG'?'arrowUp':'arrowDown',text:s,price:current.close});
             }
         }
-        return {trades:tr,markers:mk,pnl:tr.reduce((a,b)=>a+b.pnl,0),winRate:tr.length?Math.round((w/tr.length)*100):0,openPos:pos,lastSignal:ls}
+        
+        // --- COUNT FIX: Total Entry Count (Closed Trades + Open Position) ---
+        const tradeCount = tr.length + (pos ? 1 : 0);
+        
+        return {trades:tr, markers:mk, pnl:tr.reduce((a,b)=>a+b.pnl,0), winRate:tr.length?Math.round((w/tr.length)*100):0, openPos:pos, lastSignal:ls, count: tradeCount}
     }
 };
 
@@ -626,11 +614,7 @@ const Logic={
 const ConfigManager={
     save:()=>{
         if(!Scanner.results || Object.keys(Scanner.results).length === 0) { App.toast('Hata: Önce TÜM PİYASAYI TARA işlemini tamamlayın!', 'red'); return; }
-        const c={
-            market:App.safeVal('market'),symbol:App.safeVal('symbol'),interval:App.safeVal('interval'),limit:App.safeVal('limit'),strategy:App.safeVal('strategy'),balance:App.safeVal('balance'),visRsi:App.safeVal('vis-rsi-len'),scanRes:Scanner.results,
-            useTpSl: document.getElementById('use-tpsl').checked, tpVal: App.safeVal('tp-val'), slVal: App.safeVal('sl-val'),
-            params:{},timestamp: new Date().toISOString()
-        };
+        const c={ market:App.safeVal('market'),symbol:App.safeVal('symbol'),interval:App.safeVal('interval'),limit:App.safeVal('limit'),strategy:App.safeVal('strategy'),balance:App.safeVal('balance'),visRsi:App.safeVal('vis-rsi-len'),scanRes:Scanner.results, useTpSl: document.getElementById('use-tpsl').checked, tpVal: App.safeVal('tp-val'), slVal: App.safeVal('sl-val'), params:{},timestamp: new Date().toISOString() };
         const s=App.safeVal('strategy'); if(s){App.paramsDef[s].forEach(p=>c.params[p.id]=App.safeVal(p.id));}
         const b=new Blob([JSON.stringify(c)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='ProTrade_Result.json'; a.click();
         App.toast('Tarama sonuçları kaydedildi.','green');
@@ -667,73 +651,33 @@ const Optimizer={
         if(s==='lsvt') for(let bbl=20; bbl<=50; bbl+=10) for(let bbm=2.0; bbm<=3.0; bbm+=0.5) for(let vf=1.5; vf<=3.5; vf+=0.5) v.push({bb_len:bbl, bb_mult:bbm, vol_len:20, vol_factor:vf});
         return v;
     },
-
-    genKey: () => {
-        return `${App.safeVal('symbol')}_${App.safeVal('interval')}_${App.safeVal('strategy')}`;
-    },
-
+    genKey: (symbol, interval, strategy) => { return `${symbol || App.safeVal('symbol')}_${interval || App.safeVal('interval')}_${strategy || App.safeVal('strategy')}`; },
     updateCacheUI: async () => {
-        const key = Optimizer.genKey();
-        const cached = await CacheDB.get('optimizations', key);
-        const infoEl = document.getElementById('opt-cache-info');
-        const btnDel = document.getElementById('btn-del-opt-cache');
-        
+        const key = Optimizer.genKey(); const cached = await CacheDB.get('optimizations', key); const infoEl = document.getElementById('opt-cache-info'); const btnDel = document.getElementById('btn-del-opt-cache');
         if (cached) {
-            const diffMins = Math.floor((Date.now() - cached.time)/60000);
-            const h = Math.floor(diffMins/60);
-            const m = diffMins % 60;
-            let timeStr = "";
-            if(h>0) timeStr += `${h} saat `;
-            timeStr += `${m} dakika önce cachelenmiştir`;
-            
-            infoEl.innerText = timeStr;
+            const diffMins = Math.floor((Date.now() - cached.time)/60000); const h = Math.floor(diffMins/60); const m = diffMins % 60;
+            infoEl.innerText = `${h>0?h+' saat ':''}${m} dakika önce cachelenmiştir`;
             btnDel.innerText = `${App.safeVal('symbol')}_${App.safeVal('interval')} için en iyi değerleri sil`;
             btnDel.style.display = 'block';
-        } else {
-            infoEl.innerText = '';
-            btnDel.style.display = 'none';
-        }
+        } else { infoEl.innerText = ''; btnDel.style.display = 'none'; }
     },
-
-    clearCurrent: async () => {
-        const key = Optimizer.genKey();
-        await CacheDB.delete('optimizations', key);
-        Optimizer.updateCacheUI();
-        App.toast('Bu ayar için optimizasyon cache silindi', 'green');
-    },
-
-    clearAll: async () => {
-        const count = await CacheDB.clearStore('optimizations');
-        Optimizer.updateCacheUI();
-        App.toast(`${count} adet optimizasyon kaydı silindi`, 'green');
-    },
-
+    clearCurrent: async () => { const key = Optimizer.genKey(); await CacheDB.delete('optimizations', key); Optimizer.updateCacheUI(); App.toast('Cache silindi', 'green'); },
+    clearAll: async () => { const count = await CacheDB.clearStore('optimizations'); Optimizer.updateCacheUI(); App.toast(`${count} adet kayıt silindi`, 'green'); },
     optimizeSymbol: async (data, strat, useTpSl, updateCallback) => {
         const v = Optimizer.getV(strat); 
         let tpRanges = [0], slRanges = [0];
-        if (useTpSl) {
-            tpRanges = []; for(let t=1; t<=30; t++) tpRanges.push(t);
-            slRanges = []; for(let s=1; s<=15; s++) slRanges.push(s);
-        }
-
+        if (useTpSl) { tpRanges = []; for(let t=1; t<=30; t++) tpRanges.push(t); slRanges = []; for(let s=1; s<=15; s++) slRanges.push(s); }
         let testCases = [];
         for(const p of v) {
             const step = v.length > 50 ? 2 : 1; 
-            for(let ti=0; ti<tpRanges.length; ti+=step) {
-                for(let si=0; si<slRanges.length; si+=step) {
-                    testCases.push({p, tp: tpRanges[ti], sl: slRanges[si]});
-                }
-            }
+            for(let ti=0; ti<tpRanges.length; ti+=step) { for(let si=0; si<slRanges.length; si+=step) { testCases.push({p, tp: tpRanges[ti], sl: slRanges[si]}); } }
         }
-        
         if(testCases.length === 0) return null;
         let best = -Infinity; let bestResult = null; const BATCH = 500; 
-        
         for(let i=0; i<testCases.length; i+=BATCH){
             const slice = testCases.slice(i, i+BATCH);
             for(const c of slice) {
-                const isTpSlActive = c.tp > 0 || c.sl > 0; 
-                const r = Logic.backtest(data, strat, c.p, isTpSlActive, c.tp, c.sl);
+                const r = Logic.backtest(data, strat, c.p, (c.tp > 0 || c.sl > 0), c.tp, c.sl);
                 if(r.pnl > best) { best = r.pnl; bestResult = { p: c.p, tp: c.tp, sl: c.sl, stats: r }; }
             }
             if(updateCallback) updateCallback((i/testCases.length)*100);
@@ -741,50 +685,25 @@ const Optimizer={
         }
         return bestResult;
     },
-
-    // Main run function (handles cache logic)
     runSingle: async (force = false) => {
-        const s = App.safeVal('strategy'), d = App.data;
-        if(!d.length) return;
+        const s = App.safeVal('strategy'), d = App.data; if(!d || !d.length) return;
         const key = Optimizer.genKey();
-        
-        // CHECK CACHE FIRST if not forced
         if (!force) {
             const cached = await CacheDB.get('optimizations', key);
             if (cached) {
-                const bp = cached.params; 
-                for(let k in bp) if(document.getElementById(k)) document.getElementById(k).value=bp[k];
-                if(cached.tp !== undefined) {
-                    document.getElementById('use-tpsl').checked = (cached.tp > 0 || cached.sl > 0);
-                    App.updateTpSlUI();
-                    document.getElementById('tp-val').value = cached.tp; 
-                    document.getElementById('sl-val').value = cached.sl;
-                }
-                Optimizer.updateCacheUI();
-                App.run(true); // Run analysis silently
-                return;
+                const bp = cached.params; for(let k in bp) if(document.getElementById(k)) document.getElementById(k).value=bp[k];
+                if(cached.tp !== undefined) { document.getElementById('use-tpsl').checked = (cached.tp > 0 || cached.sl > 0); App.updateTpSlUI(); document.getElementById('tp-val').value = cached.tp; document.getElementById('sl-val').value = cached.sl; }
+                Optimizer.updateCacheUI(); App.run(true); return;
             }
         }
-
-        // NO CACHE or FORCED -> CALCULATE
         const useTpSl = document.getElementById('use-tpsl').checked;
         App.modal(true,'Optimize','Hesaplanıyor...',0); await new Promise(r=>setTimeout(r,100));
         const res = await Optimizer.optimizeSymbol(d, s, useTpSl, (pct) => { App.modal(true,'Optimize','Taranıyor...', pct); });
-        
         if(res){
-            const bp = res.p; 
-            for(let k in bp) if(document.getElementById(k)) document.getElementById(k).value=bp[k];
+            const bp = res.p; for(let k in bp) if(document.getElementById(k)) document.getElementById(k).value=bp[k];
             if(useTpSl) { document.getElementById('tp-val').value = res.tp; document.getElementById('sl-val').value = res.sl; }
-            
-            // SAVE TO CACHE
-            await CacheDB.put('optimizations', key, {
-                params: bp,
-                tp: useTpSl ? res.tp : 0,
-                sl: useTpSl ? res.sl : 0,
-                time: Date.now()
-            });
+            await CacheDB.put('optimizations', key, { params: bp, tp: useTpSl ? res.tp : 0, sl: useTpSl ? res.sl : 0, time: Date.now() });
             Optimizer.updateCacheUI();
-            
             if(force) App.toast(`Optimum: $${res.stats.pnl.toFixed(2)}`,'green');
             App.run(true);
         }
@@ -792,25 +711,44 @@ const Optimizer={
     }
 };
 
+/* --- 6. SCANNER ENGINE --- */
 const Scanner={
     results:{},
     start:async()=>{
         const s=App.safeVal('strategy'), syms=ASSETS.CRYPTO;
         const useTpSl = document.getElementById('scan-tpsl-opt').checked;
+        const interval = App.safeVal('interval');
         App.modal(true,'Tarama','Başlıyor...',0); Scanner.results={};
         
         for(let i=0;i<syms.length;i++){
             const symName = syms[i].s;
             App.modal(true,`Taranıyor: ${symName}`,`${i+1}/${syms.length}`,(i/syms.length)*100);
-            let d = null; try { d = await App.fetchData(symName); } catch(e) { console.error(e); }
-            if(d&&d.length>50){
-                const optRes = await Optimizer.optimizeSymbol(d, s, useTpSl, null);
+            
+            // 1. Fetch Data
+            let d = await App.fetchData(symName); 
+            if(d && d.length > 50){
+                const optKey = Optimizer.genKey(symName, interval, s);
+                let cachedOpt = await CacheDB.get('optimizations', optKey);
+                let optRes;
+                
+                if(cachedOpt) {
+                    const run = Logic.backtest(d, s, cachedOpt.params, (cachedOpt.tp > 0 || cachedOpt.sl > 0), cachedOpt.tp, cachedOpt.sl);
+                    optRes = { p: cachedOpt.params, tp: cachedOpt.tp, sl: cachedOpt.sl, stats: run };
+                } else {
+                    optRes = await Optimizer.optimizeSymbol(d, s, useTpSl, null);
+                    if(optRes) await CacheDB.put('optimizations', optKey, { params: optRes.p, tp: optRes.tp, sl: optRes.sl, time: Date.now() });
+                }
+
                 if(optRes) {
                     const run = optRes.stats;
+                    // Scanner should use the SAME 'count' logic as Logic.backtest
+                    const tradesCount = run.count; // This includes open pos
+                    
                     let lastT = run.openPos ? run.openPos.t : (run.trades.length>0 ? run.trades[run.trades.length-1].et : 0);
                     Scanner.results[symName]={
                         bestParams: optRes.p, bestTp: optRes.tp, bestSl: optRes.sl, 
-                        pnl: run.pnl, winRate: run.winRate, trades: run.trades.length, 
+                        pnl: run.pnl, winRate: run.winRate, 
+                        trades: tradesCount, 
                         lastSignal: run.lastSignal, openPos: run.openPos, lastEntryTime: lastT
                     };
                 }
@@ -820,15 +758,12 @@ const Scanner={
     },
     renderResults:()=>{
         const tb=document.querySelector('#t-scanner tbody'); if(!tb) return; tb.innerHTML='';
-        const keys=Object.keys(Scanner.results).sort((a,b)=>Scanner.results[b].lastEntryTime - Scanner.results[a].lastEntryTime);
+        const keys=Object.keys(Scanner.results).sort((a,b)=>Scanner.results[b].pnl - Scanner.results[a].pnl);
         keys.forEach(k=>{
             const r=Scanner.results[k];
-            let st=`<span class="badge b-neutral">Beklemede</span>`;
-            if(r.openPos)st=`<span class="badge ${r.openPos.type==='LONG'?'b-long':'b-short'}">AÇIK: ${r.openPos.type}</span>`;
-            else if(r.lastSignal)st=`<span class="badge ${r.lastSignal==='LONG'?'b-long':'b-short'}">Sinyal: ${r.lastSignal}</span>`;
-            const dateStr = r.lastEntryTime>0 ? new Date(r.lastEntryTime*1000).toLocaleString() : '-';
+            let st=r.openPos ? `<span class="badge ${r.openPos.type==='LONG'?'b-long':'b-short'}">AÇIK: ${r.openPos.type}</span>` : (r.lastSignal ? `<span class="badge ${r.lastSignal==='LONG'?'b-long':'b-short'}">Sinyal: ${r.lastSignal}</span>` : `<span class="badge b-neutral">Beklemede</span>`);
             const tr=document.createElement('tr');
-            tr.innerHTML=`<td><b>${k}</b></td><td style="font-size:0.75rem">${dateStr}</td><td>${st}</td><td class="${r.pnl>=0?'green':'red'}">${r.pnl.toFixed(2)}</td><td>%${r.winRate}</td><td>${r.trades}</td><td><button class="btn-blue-std" style="padding:2px 6px; width:auto;" onclick="Scanner.load('${k}')">Seç</button></td>`;
+            tr.innerHTML=`<td><b>${k}</b></td><td>${new Date(r.lastEntryTime*1000).toLocaleString('tr-TR')}</td><td>${st}</td><td class="${r.pnl>=0?'green':'red'}">${r.pnl.toFixed(2)}</td><td>%${r.winRate}</td><td>${r.trades}</td><td><button class="btn-blue-std" style="padding:2px 6px; width:auto;" onclick="Scanner.load('${k}')">Seç</button></td>`;
             tb.appendChild(tr);
         });
     },
@@ -836,23 +771,38 @@ const Scanner={
         const symEl = document.getElementById('symbol');
         if(symEl) {
             symEl.value=s;
-            if(Scanner.results[s]){
-                const res=Scanner.results[s];
-                const b=res.bestParams;
-                for(let k in b) if(document.getElementById(k)) document.getElementById(k).value=b[k];
+            const res=Scanner.results[s];
+            if(res){
+                // 1. Load Params
+                const b=res.bestParams; for(let k in b) if(document.getElementById(k)) document.getElementById(k).value=b[k];
                 if(res.bestTp !== undefined && (res.bestTp > 0 || res.bestSl > 0)) {
                     document.getElementById('use-tpsl').checked = true; App.updateTpSlUI();
                     document.getElementById('tp-val').value = res.bestTp; document.getElementById('sl-val').value = res.bestSl;
-                } else { if(res.bestTp === 0 && res.bestSl === 0) { document.getElementById('use-tpsl').checked = false; App.updateTpSlUI(); } }
+                } else { 
+                    if(res.bestTp === 0 && res.bestSl === 0) { document.getElementById('use-tpsl').checked = false; App.updateTpSlUI(); } 
+                }
+                // 2. Force Cache Update so autoRun sees it
+                const key = `${s}_${App.safeVal('interval')}_${App.safeVal('strategy')}`;
+                const useTpSl = document.getElementById('use-tpsl').checked;
+                CacheDB.put('optimizations', key, {
+                    params: b,
+                    tp: useTpSl ? res.bestTp : 0,
+                    sl: useTpSl ? res.bestSl : 0,
+                    time: Date.now()
+                }).then(() => {
+                    // 3. Trigger Full Auto Run
+                    App.autoRun();
+                    App.switchTab('history');
+                    App.toast('Optimize Ayarlar Yüklendi','green');
+                });
             }
-            App.run(); App.switchTab('history');
         }
     }
 };
 
 /* --- 7. APP CONTROLLER --- */
 const App = {
-    chart:null, cSeries:null, vSeries:null, rsiSeries:null, data:[], intervalId:null,
+    chart:null, cSeries:null, vSeries:null, rsiSeries:null, data:[], intervalId:null, currentPrecision:2,
     paramsDef:{
         supertrend:[{id:'st_p',l:'Periyot',v:10},{id:'st_f',l:'Faktör',v:3,s:0.1}],
         psar:[{id:'ps_s',l:'Başlangıç',v:0.02,s:0.01},{id:'ps_i',l:'Adım',v:0.02,s:0.01},{id:'ps_m',l:'Max',v:0.2,s:0.01}],
@@ -866,84 +816,121 @@ const App = {
         williams:[{id:'w_len',l:'Williams Periyot',v:14},{id:'w_lvl',l:'Alt/Üst Sınır (-)',v:20}],
         lsvt:[{id:'bb_len',l:'Likidasyon Alanı (BB Len)',v:20},{id:'bb_mult',l:'Sapma (Std Dev)',v:2.0,s:0.1},{id:'vol_len',l:'Hacim Ort. Periyodu',v:20},{id:'vol_factor',l:'Hacim Patlama Çarpanı',v:2.0,s:0.1}]
     },
-    
     safeVal: (id) => { const el = document.getElementById(id); return el ? el.value : ''; },
-
+    formatPrice: (price) => {
+        if (price === null || price === undefined) return '--';
+        return parseFloat(price).toFixed(App.currentPrecision);
+    },
     init:()=>{
         const d=document.getElementById('chart'); if(!d) return;
-        App.chart=LightweightCharts.createChart(d,{layout:{background:{color:'#0d1117'},textColor:'#848d97'},grid:{vertLines:{color:'#161b22'},horzLines:{color:'#161b22'}},timeScale:{borderColor:'#30363d',timeVisible:true},rightPriceScale:{borderColor:'#30363d'}});
+        
+        // -- CHART CONFIG --
+        App.chart=LightweightCharts.createChart(d,{
+            layout:{background:{color:'#0d1117'},textColor:'#848d97'},
+            grid:{vertLines:{color:'rgba(48, 54, 61, 0.4)'},horzLines:{color:'rgba(48, 54, 61, 0.4)'}},
+            timeScale:{borderColor:'#30363d',timeVisible:true},
+            rightPriceScale:{borderColor:'#30363d'},
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            watermark: {
+                visible: true,
+                fontSize: 48,
+                horzAlign: 'center',
+                vertAlign: 'center',
+                color: 'rgba(255, 255, 255, 0.05)',
+                text: 'ProTrade AI',
+            },
+        });
+
         App.rsiSeries=App.chart.addLineSeries({color:'#a371f7',lineWidth:2, priceScaleId: 'rsi'});
         App.chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0, bottom: 0.75 } });
-        App.rsiSeries.createPriceLine({price:70,color:'#da3633',lineWidth:1,lineStyle:2,axisLabelVisible:false});
-        App.rsiSeries.createPriceLine({price:30,color:'#238636',lineWidth:1,lineStyle:2,axisLabelVisible:false});
-        App.cSeries=App.chart.addCandlestickSeries({upColor:'#238636',downColor:'#da3633',borderVisible:false,wickUpColor:'#238636',wickDownColor:'#da3633',priceScaleId:'right'});
-        App.chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.3, bottom: 0.15 } });
+        App.rsiSeries.createPriceLine({price:70,color:'#f23645',lineWidth:1,lineStyle:2,axisLabelVisible:false});
+        App.rsiSeries.createPriceLine({price:30,color:'#089981',lineWidth:1,lineStyle:2,axisLabelVisible:false});
+        
+        // -- CANDLE STYLING (Standard TradingView Colors) --
+        App.cSeries=App.chart.addCandlestickSeries({
+            upColor:'#089981', downColor:'#f23645',
+            borderUpColor:'#089981', borderDownColor:'#f23645',
+            wickUpColor:'#089981', wickDownColor:'#f23645',
+            priceScaleId:'right'
+        });
+        
+        App.chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.2, bottom: 0.2 } });
         App.vSeries=App.chart.addHistogramSeries({priceFormat:{type:'volume'}, priceScaleId:'vol'});
         App.chart.priceScale('vol').applyOptions({ scaleMargins:{top:0.85, bottom:0} });
         new ResizeObserver(()=>App.chart.resize(d.clientWidth,d.clientHeight)).observe(d);
         
+        // -- CROSSHAIR FORMATTING --
         App.chart.subscribeCrosshairMove(p=>{
             if(!p.time || !App.data.length) return;
             const c = p.seriesData.get(App.cSeries); const v = p.seriesData.get(App.vSeries); const r = p.seriesData.get(App.rsiSeries);
-            if(c){ document.getElementById('leg-o').innerText=c.open.toFixed(2); document.getElementById('leg-h').innerText=c.high.toFixed(2); document.getElementById('leg-l').innerText=c.low.toFixed(2); document.getElementById('leg-c').innerText=c.close.toFixed(2); }
-            if(v) document.getElementById('leg-v').innerText=v.value.toFixed(2);
-            if(r) document.getElementById('leg-rsi').innerText=r.value.toFixed(2);
+            if(c){ 
+                document.getElementById('leg-o').innerText=App.formatPrice(c.open); 
+                document.getElementById('leg-h').innerText=App.formatPrice(c.high); 
+                document.getElementById('leg-l').innerText=App.formatPrice(c.low); 
+                document.getElementById('leg-c').innerText=App.formatPrice(c.close); 
+            }
+            if(v) document.getElementById('leg-v').innerText=v.value.toFixed(2); if(r) document.getElementById('leg-rsi').innerText=r.value.toFixed(2);
         });
-
         const bind = (id, evt, fn) => { const el = document.getElementById(id); if(el) el.addEventListener(evt, fn); };
-        
-        // --- AUTO OPTIMIZE FLOW ---
-        const autoRun = async () => {
-            const sVal = App.safeVal('symbol'); 
-            document.getElementById('cache-info').innerText = ''; 
-            document.getElementById('clear-cache-btn').style.display = 'none';
-            
-            const d = await App.fetchData(sVal); // Fetch candle data first
-            if(!d||!d.length){ App.modal(false); return; }
-            App.data = d;
-            
-            // Check cache & run single
-            await Optimizer.runSingle(false); 
-            
-            App.updateHeaders();
-        };
-
-        bind('market', 'change', (e)=>{ 
-            App.loadSyms(); 
-            const el = document.getElementById('crypto-scanner-area'); 
-            if(el) el.style.display=e.target.value==='CRYPTO'?'block':'none'; 
-            const lim = document.getElementById('limit'); if(lim) lim.value = (e.target.value === 'CRYPTO') ? '500' : '200';
-            const scanBtn = document.getElementById('scan-btn'); if(scanBtn) scanBtn.innerText = `🚀 TÜM PİYASAYI TARA (${ASSETS[e.target.value].length})`;
-            autoRun();
-        });
-        bind('strategy', 'change', ()=>{ App.renderUI(); Optimizer.updateCacheUI(); App.updateHeaders(); autoRun(); });
-        bind('symbol', 'change', autoRun);
-        bind('interval', 'change', autoRun);
-        
+        bind('market', 'change', (e)=>{ App.loadSyms(); const el = document.getElementById('crypto-scanner-area'); if(el) el.style.display=e.target.value==='CRYPTO'?'block':'none'; const lim = document.getElementById('limit'); if(lim) lim.value = (e.target.value === 'CRYPTO') ? '500' : '200'; const scanBtn = document.getElementById('scan-btn'); if(scanBtn) scanBtn.innerText = `🚀 TÜM PİYASAYI TARA (${ASSETS[e.target.value].length})`; App.autoRun(); });
+        bind('strategy', 'change', ()=>{ App.renderUI(); Optimizer.updateCacheUI(); App.updateHeaders(); App.autoRun(); });
+        bind('symbol', 'change', App.autoRun); bind('interval', 'change', App.autoRun);
         App.loadSyms(); App.renderUI(); App.setTimer(); 
         document.getElementById('scan-btn').innerText = `🚀 TÜM PİYASAYI TARA (${ASSETS.CRYPTO.length})`;
+        App.autoRun();
+    },
+    
+    // --- UPDATED UI UPDATE LOGIC ---
+    updateCacheInfoUI: (lastTime, cachedAt) => {
+        const infoEl = document.getElementById('cache-info');
+        const clearBtn = document.getElementById('clear-cache-btn');
+        if(infoEl) {
+            infoEl.innerText = App.formatCacheInfo(lastTime, cachedAt);
+            clearBtn.style.display = 'block';
+        }
+    },
+    
+    setPrecision: (lastPrice) => {
+        if(!lastPrice) return;
+        let p = 2;
+        let minMove = 0.01;
         
-        // Initial Auto Run
-        autoRun();
+        if (lastPrice > 1000) { p = 2; minMove = 0.01; }
+        else if (lastPrice > 10) { p = 2; minMove = 0.01; }
+        else if (lastPrice > 1) { p = 4; minMove = 0.0001; }
+        else if (lastPrice > 0.01) { p = 5; minMove = 0.00001; }
+        else if (lastPrice > 0.0001) { p = 6; minMove = 0.000001; }
+        else { p = 8; minMove = 0.00000001; }
+        
+        App.currentPrecision = p;
+        App.cSeries.applyOptions({
+            priceFormat: {
+                type: 'price',
+                precision: p,
+                minMove: minMove,
+            },
+        });
     },
 
+    autoRun: async () => {
+        document.getElementById('cache-info').innerText = ''; 
+        document.getElementById('clear-cache-btn').style.display = 'none';
+        
+        const d = await App.fetchData(); 
+        if(!d||!d.length){ App.modal(false); return; }
+        App.data = d;
+        
+        // -- SET DYNAMIC PRECISION BASED ON LAST PRICE --
+        App.setPrecision(d[d.length-1].close);
+        
+        await Optimizer.runSingle(false); 
+        App.updateHeaders();
+    },
     formatCacheInfo: (lastTime, cachedAt) => {
-        const d = new Date(lastTime * 1000);
-        const dateStr = d.toLocaleString('tr-TR'); 
-        
-        const now = Date.now();
-        const diffMs = Math.max(0, now - cachedAt); 
-        const diffMinsTotal = Math.floor(diffMs / 60000);
-        const hours = Math.floor(diffMinsTotal / 60);
-        const mins = diffMinsTotal % 60;
-        
-        let timeAgo = "";
-        if(hours > 0) timeAgo += `(${hours} saat) `;
-        timeAgo += `${mins} dakika önce`;
-        
-        return `${dateStr} son mum tarihi olarak ${timeAgo} cachelendi`;
+        const d = new Date(lastTime * 1000); const dateStr = d.toLocaleString('tr-TR'); 
+        const now = Date.now(); const diffMs = Math.max(0, now - cachedAt); const diffMinsTotal = Math.floor(diffMs / 60000); const hours = Math.floor(diffMinsTotal / 60); const mins = diffMinsTotal % 60;
+        return `${dateStr} son mum tarihi olarak ${hours>0?'('+hours+' saat) ':''}${mins} dakika önce cachelendi`;
     },
-
     toggleTpSlManual: () => { const check = document.getElementById('use-tpsl'); check.checked = !check.checked; App.updateTpSlUI(); },
     toggleScanOpt: () => { const check = document.getElementById('scan-tpsl-opt'); check.checked = !check.checked; },
     updateTpSlUI: () => { const check = document.getElementById('use-tpsl'); document.getElementById('tpsl-params').classList.toggle('active', check.checked); },
@@ -957,169 +944,98 @@ const App = {
     switchTab:(t)=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); const tabEl = document.querySelector(`.tab[onclick="App.switchTab('${t}')"]`); const contentEl = document.getElementById(`tab-${t}`); if(tabEl) tabEl.classList.add('active'); if(contentEl) contentEl.classList.add('active'); },
     toast:(m,t)=>{ const el=document.getElementById('toast'); if(!el) return; el.innerText=m;el.style.color=t==='green'?'#3fb950':'#ff7b72';el.style.display='block'; setTimeout(()=>el.style.display='none',3000); },
     modal:(s,t,d,p)=>{ const m=document.getElementById('loading-overlay'); if(!m) return; if(s){ m.style.display='flex'; document.getElementById('modal-title').innerText=t; document.getElementById('modal-desc').innerText=d; document.getElementById('modal-bar').style.width=p+'%'; document.getElementById('modal-percent').innerText=Math.round(p)+'%'; }else{m.style.display='none'} },
-
     fetchWithProxy: async (url, idx=0) => {
         if(idx >= PROXIES.length) throw new Error("All proxies failed");
-        try {
-            const r = await fetch(PROXIES[idx] + encodeURIComponent(url));
-            if(!r.ok) throw new Error("Net Err");
-            const raw = await r.json(); return raw.contents ? JSON.parse(raw.contents) : raw;
-        } catch(e) { return App.fetchWithProxy(url, idx+1); }
+        try { const r = await fetch(PROXIES[idx] + encodeURIComponent(url)); if(!r.ok) throw new Error("Net Err"); const raw = await r.json(); return raw.contents ? JSON.parse(raw.contents) : raw; } catch(e) { return App.fetchWithProxy(url, idx+1); }
     },
-
     fetchData:async(so)=>{
         const m=App.safeVal('market'), s=so||App.safeVal('symbol'), t=App.safeVal('interval'), l=parseInt(App.safeVal('limit'));
-        const cacheKey = `${s}_${t}`;
-        const infoEl = document.getElementById('cache-info');
-        const clearBtn = document.getElementById('clear-cache-btn');
-        let existingData = [];
-        
-        const parseInterval = (i) => {
-            const num = parseInt(i);
-            if(i.includes('m')) return num * 60;
-            if(i.includes('h')) return num * 3600;
-            if(i.includes('d')) return num * 86400;
-            return 60;
-        };
-
+        const cacheKey = `${s}_${t}`; 
+        const parseInterval = (i) => { const num = parseInt(i); if(i.includes('m')) return num * 60; if(i.includes('h')) return num * 3600; if(i.includes('d')) return num * 86400; return 60; };
         if (m === 'CRYPTO') {
             const cachedWrapper = await CacheDB.get('candles', cacheKey);
-            let cachedData = null;
-            let cachedAt = 0;
-
-            if (cachedWrapper) {
-                if (Array.isArray(cachedWrapper)) {
-                    cachedData = cachedWrapper;
-                    cachedAt = Date.now();
-                } else if (cachedWrapper.candles) {
-                    cachedData = cachedWrapper.candles;
-                    cachedAt = cachedWrapper.cachedAt || Date.now();
-                }
-            }
-
-            if (cachedData && cachedData.length > 0) {
-                existingData = cachedData;
-                const lastCandle = existingData[existingData.length - 1];
-                const lastTime = lastCandle.time; 
+            let cachedData = cachedWrapper?.candles || (Array.isArray(cachedWrapper) ? cachedWrapper : null);
+            let cachedAt = cachedWrapper?.cachedAt || Date.now();
+            if (cachedData?.length > 0) {
+                const lastTime = cachedData[cachedData.length - 1].time;
                 
-                if(infoEl) {
-                    infoEl.innerText = App.formatCacheInfo(lastTime, cachedAt);
-                    clearBtn.style.display = 'block';
-                }
+                // Update UI immediately on Cache Hit
+                if(!so) App.updateCacheInfoUI(lastTime, cachedAt);
 
-                const periodSeconds = parseInterval(t);
-                const nextOpenTime = lastTime + periodSeconds;
                 const nowSeconds = Math.floor(Date.now() / 1000);
-
-                if (nowSeconds < nextOpenTime) {
-                    return existingData;
-                }
-
+                if (nowSeconds < (lastTime + parseInterval(t))) return cachedData;
                 const startTimeMs = (lastTime * 1000) + 1000;
                 try {
                     const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}&interval=${t}&limit=1000&startTime=${startTimeMs}`);
                     if (r.ok) {
                         const j = await r.json();
                         if (j.length > 0) {
-                            const newCandles = j.map(d=>({time:d[0]/1000,open:+d[1],high:+d[2],low:+d[3],close:+d[4],value:+d[5],color:(+d[4]>=+d[1]?'rgba(46,160,67,0.3)':'rgba(218,54,51,0.3)')}));
-                            const merged = existingData.concat(newCandles);
-                            const finalData = merged.slice(-2000); 
-                            
+                            const newCandles = j.map(d=>({time:d[0]/1000,open:+d[1],high:+d[2],low:+d[3],close:+d[4],value:+d[5],color:(+d[4]>=+d[1]?'rgba(8, 153, 129, 0.3)':'rgba(242, 54, 69, 0.3)')}));
+                            const finalData = cachedData.concat(newCandles).slice(-2000); 
                             const nowTs = Date.now();
                             await CacheDB.put('candles', cacheKey, { candles: finalData, cachedAt: nowTs });
                             
-                            const newLast = finalData[finalData.length-1].time;
-                            if(infoEl) infoEl.innerText = App.formatCacheInfo(newLast, nowTs);
-                            
+                            // Update UI on New Data
+                            if(!so) App.updateCacheInfoUI(finalData[finalData.length-1].time, nowTs);
                             return finalData;
-                        } else { return existingData; }
+                        } else return cachedData;
                     }
-                } catch(e) { console.log('Cache fetch error', e); return existingData; }
+                } catch(e) { return cachedData; }
             }
         }
-
         try{
             if(m==='CRYPTO'){
-                let al=l>1000?1000:l;
-                const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}&interval=${t}&limit=${al}`);
-                if(!r.ok) throw new Error("Binance Direct Failed");
-                const j=await r.json();
-                const freshData = j.map(d=>({time:d[0]/1000,open:+d[1],high:+d[2],low:+d[3],close:+d[4],value:+d[5],color:(+d[4]>=+d[1]?'rgba(46,160,67,0.3)':'rgba(218,54,51,0.3)')}));
+                const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}&interval=${t}&limit=${l>1000?1000:l}`);
+                const j = await r.json();
+                const freshData = j.map(d=>({time:d[0]/1000,open:+d[1],high:+d[2],low:+d[3],close:+d[4],value:+d[5],color:(+d[4]>=+d[1]?'rgba(8, 153, 129, 0.3)':'rgba(242, 54, 69, 0.3)')}));
                 const nowTs = Date.now();
                 await CacheDB.put('candles', cacheKey, { candles: freshData, cachedAt: nowTs });
                 
-                const lastT = freshData[freshData.length-1].time;
-                if(infoEl) {
-                    infoEl.innerText = App.formatCacheInfo(lastT, nowTs);
-                    clearBtn.style.display = 'block';
-                }
+                // Update UI on First Fetch
+                if(!so) App.updateCacheInfoUI(freshData[freshData.length-1].time, nowTs);
+                
                 return freshData;
-            }else{
+            } else {
                 let iv='1d',rg='1y';if(t==='15m'){rg='1mo';iv='15m'}else if(t==='1h'||t==='2h'||t==='4h'){rg='6mo';iv='60m'}
-                const u=`https://query1.finance.yahoo.com/v8/finance/chart/${s}?interval=${iv}&range=${rg}`;
-                const j = await App.fetchWithProxy(u);
+                const j = await App.fetchWithProxy(`https://query1.finance.yahoo.com/v8/finance/chart/${s}?interval=${iv}&range=${rg}`);
                 const res=j.chart.result[0],q=res.indicators.quote[0],ts=res.timestamp;
-                let d=[];for(let i=0;i<ts.length;i++){if(q.open[i]===null)continue;let o=q.open[i],c=q.close[i];d.push({time:ts[i],open:o,high:q.high[i],low:q.low[i],close:c,value:q.volume[i]||0,color:(c>=o?'rgba(46,160,67,0.3)':'rgba(218,54,51,0.3)')})}
+                let d=[];for(let i=0;i<ts.length;i++){if(q.open[i]===null)continue;let o=q.open[i],c=q.close[i];d.push({time:ts[i],open:o,high:q.high[i],low:q.low[i],close:c,value:q.volume[i]||0,color:(c>=o?'rgba(8, 153, 129, 0.3)':'rgba(242, 54, 69, 0.3)')})}
                 await CacheDB.put('candles', cacheKey, { candles: d, cachedAt: Date.now() });
                 return d.slice(-l);
             }
-        }catch(e){console.warn("Fetch failed, using sim"); return App.genSim(l)}
+        }catch(e){return App.genSim(l)}
     },
-    genSim:(l)=>{let d=[],t=Math.floor(Date.now()/1000)-(l*3600),p=100;for(let i=0;i<l;i++){let m=(Math.sin(i)*3),c=p+m,o=p;d.push({time:t,open:o,high:Math.max(o,c)+1,low:Math.min(o,c)-1,close:c,value:1000,color:'rgba(46,160,67,0.3)'});p=c;t+=3600}return d},
-
+    genSim:(l)=>{let d=[],t=Math.floor(Date.now()/1000)-(l*3600),p=100;for(let i=0;i<l;i++){let m=(Math.sin(i)*3),c=p+m,o=p;d.push({time:t,open:o,high:Math.max(o,c)+1,low:Math.min(o,c)-1,close:c,value:1000,color:'rgba(8, 153, 129, 0.3)'});p=c;t+=3600}return d},
     run:async(sil=false)=>{
         if(!sil)App.modal(true,'Analiz','Veriler işleniyor...',100);
-        const d = App.data;
-        if(!d||!d.length){if(!sil)App.modal(false);return}
-        
+        const d = App.data; if(!d || !d.length){ if(!sil)App.modal(false); return; }
         const s=App.safeVal('strategy'); const p={};
         if(App.paramsDef[s]) App.paramsDef[s].forEach(k=>{const el=document.getElementById(k.id); if(el) p[k.id]=parseFloat(el.value)});
-        
         const useTpSl = document.getElementById('use-tpsl').checked;
-        const tpVal = parseFloat(App.safeVal('tp-val'));
-        const slVal = parseFloat(App.safeVal('sl-val'));
-
-        const res=Logic.backtest(d,s,p, useTpSl, tpVal, slVal);
-        
+        const res=Logic.backtest(d,s,p, useTpSl, parseFloat(App.safeVal('tp-val')), parseFloat(App.safeVal('sl-val')));
         App.cSeries.setData(d); App.vSeries.setData(d.map(x=>({time:x.time,value:x.value,color:x.color})));
-        const rsiLen = parseInt(App.safeVal('vis-rsi-len')) || 14; App.rsiSeries.setData(Indicators.rsi(d, rsiLen));
-        const markers = res.markers.map(m => ({...m, text: `${m.text} @ ${m.price ? m.price.toFixed(2) : ''}`}));
-        App.cSeries.setMarkers(markers);
+        App.rsiSeries.setData(Indicators.rsi(d, parseInt(App.safeVal('vis-rsi-len')) || 14));
+        // Use Dynamic Formatting for Markers
+        App.cSeries.setMarkers(res.markers.map(m => ({...m, text: `${m.text} @ ${m.price ? App.formatPrice(m.price) : ''}`})));
         if(!sil)App.chart.timeScale().fitContent();
-
         const bal=parseFloat(App.safeVal('balance'));
-        const balEl = document.getElementById('res-bal'); if(balEl) balEl.innerText='$'+(bal+res.pnl).toFixed(2);
-        const pnlEl = document.getElementById('res-pnl'); if(pnlEl) pnlEl.innerHTML=`<span class="${res.pnl>=0?'green':'red'}">${res.pnl.toFixed(2)}</span>`;
-        const winEl = document.getElementById('res-win'); if(winEl) winEl.innerText='%'+res.winRate;
-        const trEl = document.getElementById('res-trades'); if(trEl) trEl.innerText=res.trades.length;
-
+        document.getElementById('res-bal').innerText='$'+(bal+res.pnl).toFixed(2);
+        document.getElementById('res-pnl').innerHTML=`<span class="${res.pnl>=0?'green':'red'}">${res.pnl.toFixed(2)}</span>`;
+        document.getElementById('res-win').innerText='%'+res.winRate;
+        document.getElementById('res-trades').innerText=res.count; // USING CORRECT COUNT
         const tb=document.querySelector('#t-history tbody');
-        if(tb) {
-            tb.innerHTML='';
-            [...res.trades].reverse().forEach(t=>{
-                tb.innerHTML+=`<tr><td><span class="badge ${t.type==='LONG'?'b-long':'b-short'}">${t.type}</span></td><td>${new Date(t.et*1000).toLocaleString()}</td><td>${t.ep.toFixed(2)}</td><td>${new Date(t.xt*1000).toLocaleString()}</td><td>${t.xp.toFixed(2)}</td><td class="${t.pnl>=0?'green':'red'}">${t.pnl.toFixed(2)}</td><td style="font-size:0.7rem">${t.reason}</td></tr>`;
-            });
-        }
-
+        if(tb) { tb.innerHTML=''; [...res.trades].reverse().forEach(t=>{ tb.innerHTML+=`<tr><td><span class="badge ${t.type==='LONG'?'b-long':'b-short'}">${t.type}</span></td><td>${new Date(t.et*1000).toLocaleString()}</td><td>${App.formatPrice(t.ep)}</td><td>${new Date(t.xt*1000).toLocaleString()}</td><td>${App.formatPrice(t.xp)}</td><td class="${t.pnl>=0?'green':'red'}">${t.pnl.toFixed(2)}</td><td style="font-size:0.7rem">${t.reason}</td></tr>`; }); }
         const ab = document.getElementById('trade-status-bar');
-        if(ab) {
-            if(res.openPos) {
-                ab.style.display = 'flex';
-                const cur = d[d.length-1].close;
-                const opnl = (res.openPos.type==='LONG'?cur-res.openPos.p:res.openPos.p-cur)*res.openPos.amt;
-                document.getElementById('at-type').innerText = res.openPos.type;
-                document.getElementById('at-type').className = `badge ${res.openPos.type==='LONG'?'b-long':'b-short'}`;
-                document.getElementById('at-entry').innerText = res.openPos.p.toFixed(2);
-                document.getElementById('at-curr').innerText = cur.toFixed(2);
-                document.getElementById('at-pnl').innerText = `${opnl>=0?'+':''}${opnl.toFixed(2)} $`;
-                document.getElementById('at-pnl').className = `ts-val ${opnl>=0?'green':'red'}`;
-            } else { ab.style.display = 'none'; }
-        }
+        if(res.openPos) {
+            ab.style.display = 'flex'; const cur = d[d.length-1].close; const opnl = (res.openPos.type==='LONG'?cur-res.openPos.p:res.openPos.p-cur)*res.openPos.amt;
+            document.getElementById('at-type').innerText = res.openPos.type; document.getElementById('at-type').className = `badge ${res.openPos.type==='LONG'?'b-long':'b-short'}`;
+            document.getElementById('at-entry').innerText = App.formatPrice(res.openPos.p); document.getElementById('at-curr').innerText = App.formatPrice(cur);
+            document.getElementById('at-pnl').innerText = `${opnl>=0?'+':''}${opnl.toFixed(2)} $`; document.getElementById('at-pnl').className = `ts-val ${opnl>=0?'green':'red'}`;
+        } else ab.style.display = 'none';
         App.updateHeaders(); if(!sil)App.modal(false);
     }
 };
-
-if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', App.init); } else { App.init(); }
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', App.init); else App.init();
 </script>
 </body>
 </html>
