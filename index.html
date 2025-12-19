@@ -148,6 +148,38 @@
             #mobile-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background: #0d1117; border-bottom: 1px solid var(--border); }
 		}
         @media (min-width: 1025px) { #mobile-header { display: none; } }
+		
+		/* iPhone ve Modern Cihazlar için Üst Boşluk Düzeltmesi */
+		#mobile-header { 
+			display: flex; 
+			align-items: center; 
+			justify-content: space-between; 
+			background: #0d1117; 
+			border-bottom: 1px solid var(--border);
+			/* iPhone Safe Area Düzeltmesi */
+			padding: calc(env(safe-area-inset-top) + 10px) 15px 10px 15px !important;
+			height: auto !important;
+		}
+
+		aside .header { 
+			position: relative; 
+			border-bottom: 1px solid var(--border); 
+			font-weight: 700; 
+			font-size: 1.2rem; 
+			display: flex; 
+			align-items: center; 
+			justify-content: space-between; 
+			color: var(--text-main); 
+			background: #0d1117;
+			/* iPhone Safe Area Düzeltmesi */
+			padding: calc(env(safe-area-inset-top) + 15px) 15px 15px 15px !important;
+		}
+
+		/* Grafik alanının tepeden basık olmaması için */
+		main {
+			height: 100vh;
+			padding-bottom: env(safe-area-inset-bottom);
+		}
     </style>
 </head>
 <body>
@@ -970,7 +1002,25 @@ const App = {
         }
         return true;
     },
+	// Akıllı ve Responsive Yakınlaştırma Fonksiyonu
+    applySmartZoom: () => {
+        if (!App.data || App.data.length === 0) return;
+        
+        const chartWidth = document.getElementById('chart').clientWidth;
+        const totalBars = App.data.length;
 
+        // Mobil için en az 100 mum, masaüstü için ekran genişliğine göre (Genişlik / 8)
+        let barsToShow = Math.max(100, Math.floor(chartWidth / 8));
+        
+        if (totalBars > barsToShow) {
+            App.chart.timeScale().setVisibleLogicalRange({
+                from: totalBars - barsToShow,
+                to: totalBars
+            });
+        } else {
+            App.chart.timeScale().fitContent();
+        }
+    },
     init: async ()=>{
         // 1. Check Version & Init DB
         if (!(await App.checkVersion())) return;
@@ -1035,7 +1085,15 @@ const App = {
         App.chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.2, bottom: 0.2 } });
         App.vSeries=App.chart.addHistogramSeries({priceFormat:{type:'volume'}, priceScaleId:'vol'});
         App.chart.priceScale('vol').applyOptions({ scaleMargins:{top:0.85, bottom:0} });
-        new ResizeObserver(()=>App.chart.resize(d.clientWidth,d.clientHeight)).observe(d);
+        new ResizeObserver(() => {
+			App.chart.resize(d.clientWidth, d.clientHeight);
+			// Yeniden boyutlandığında da son mumlara odaklı kal
+			const total = App.data.length;
+			const bars = Math.max(100, Math.floor(d.clientWidth / 7));
+			if(total > bars) {
+				App.chart.timeScale().setVisibleLogicalRange({ from: total - bars, to: total });
+			}
+		}).observe(d);
         
         // -- CROSSHAIR FORMATTING --
         App.chart.subscribeCrosshairMove(p=>{
@@ -1142,7 +1200,8 @@ const App = {
         // ** YENİ EKLENEN KISIM: Grafiği HEMEN çiz (Bekleme yapmadan) **
         App.cSeries.setData(d);
         App.vSeries.setData(d.map(x=>({time:x.time, value:x.value, color:x.color})));
-        App.chart.timeScale().fitContent(); // Mumlar oturana kadar bekle
+        // --- DÜZELTME: fitContent() yerine Akıllı Zoom ---
+        App.applySmartZoom(); 
 
         // ** YENİ EKLENEN KISIM: Socket'i HEMEN başlat (Optimizasyonu bekleme) **
         if(App.safeVal('market') === 'CRYPTO') {
@@ -1236,17 +1295,31 @@ const App = {
         const useTpSl = document.getElementById('use-tpsl').checked;
         const res=Logic.backtest(d,s,p, useTpSl, parseFloat(App.safeVal('tp-val')), parseFloat(App.safeVal('sl-val')));
         
-        // Sadece tam refresh'te (sil=false) veriyi tekrar yükle. Canlı akışta sadece mum güncellemesi yukarıda yapıldı.
+        // Sadece tam refresh'te veriyi tekrar yükle
         if(!sil) {
             App.cSeries.setData(d); 
             App.vSeries.setData(d.map(x=>({time:x.time,value:x.value,color:x.color})));
+            App.applySmartZoom(); // Analiz butonuna basıldığında da zoom uygula
         }
 
         // İndikatörleri ve Markerları her türlü yenilemek lazım çünkü son mum değişti.
         App.rsiSeries.setData(Indicators.rsi(d, parseInt(App.safeVal('vis-rsi-len')) || 14));
         App.cSeries.setMarkers(res.markers.map(m => ({...m, text: `${m.text} @ ${m.price ? App.formatPrice(m.price) : ''}`})));
         
-        if(!sil)App.chart.timeScale().fitContent();
+        // --- GÜNCELLEME: SON 100 MUM YAKINLAŞTIRMA ---
+        if(!sil) {
+            const totalBars = d.length;
+            if (totalBars > 100) {
+                App.chart.timeScale().setVisibleLogicalRange({
+                    from: totalBars - 100,
+                    to: totalBars
+                });
+            } else {
+                App.chart.timeScale().fitContent();
+            }
+        }
+        // --------------------------------------------
+		
         const bal=parseFloat(App.safeVal('balance'));
         document.getElementById('res-bal').innerText='$'+(bal+res.pnl).toFixed(2);
         document.getElementById('res-pnl').innerHTML=`<span class="${res.pnl>=0?'green':'red'}">${res.pnl.toFixed(2)}</span>`;
