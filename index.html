@@ -149,26 +149,28 @@
 		}
         @media (min-width: 1025px) { #mobile-header { display: none; } }
 		
-		/* Mobil Üst Bar (Dinamik Ada Düzeltmesi) */
+		/* Mobil Üst Bar - Dinamik Ada Desteği */
 		#mobile-header {
-			display: flex;
-			align-items: center;
+			display: flex !important;
+			align-items: center; 
 			justify-content: space-between;
 			background: #0d1117;
 			border-bottom: 1px solid var(--border);
-			/* Üstten boşluğu cihazın güvenli alanına göre ayarlar */
-			padding-top: env(safe-area-inset-top) !important;
-			/* Yüksekliği güvenli alan + 50px olarak sabitler */
-			height: calc(60px + env(safe-area-inset-top)) !important;
+			/* İçeriği Dinamik Ada'nın TAMAMEN altına iter */
+			padding-top: env(safe-area-inset-top) !important; 
+			height: 50px; /* İçerik yüksekliği */
+			box-sizing: content-box; /* Padding'i yüksekliğe ekler */
 			z-index: 1000;
 		}
 
-		/* Kenar Menü Başlığı (Menü açıkken Dinamik Ada düzeltmesi) */
+		/* Kenar Menü Açıldığında Üst Kısım */
 		aside .header {
-			padding-top: env(safe-area-inset-top) !important;
-			height: calc(60px + env(safe-area-inset-top)) !important;
-			display: flex;
+			display: flex !important;
 			align-items: center;
+			justify-content: space-between;
+			padding-top: env(safe-area-inset-top) !important;
+			height: 50px;
+			box-sizing: content-box;
 			background: #0d1117;
 		}
 
