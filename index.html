@@ -320,22 +320,25 @@
                 </div>
             </div>
 
-            <button class="btn-run" onclick="App.run(); App.closeMenu();">Analiz Et</button>
+            <button class="btn-run" onclick="App.hybridConfig = null; App.run(); App.closeMenu();">Analiz Et</button>
         </div>
         
         <div class="section">
             <div class="sec-title">Optimizasyon</div>
-            <button class="btn-opt" onclick="Optimizer.runSingle(true)">⚡ En İyi Parametreleri Bul</button>
+            <button class="btn-opt" onclick="App.hybridConfig = null; Optimizer.runSingle(true)">⚡ En İyi Parametreleri Bul</button>
+			
             <div id="opt-cache-info"></div>
+			
+			<!-- HTML içinde Optimizer.runSingle butonunun altına ekleyin -->
+			<button class="btn-scan" style="background: linear-gradient(135deg, #e67e22, #d35400); margin-top: 10px;" 
+					onclick="GeneticOptimizer.evolve(document.getElementById('strategy').value)">
+				🧬 Genetik Öğrenmeyi Başlat
+			</button>
+			
             <button id="btn-del-opt-cache" class="btn-red" onclick="Optimizer.clearCurrent()">Mevcut Ayar Cache'ini Sil</button>
             <button id="btn-del-all-opt" class="btn-red d-block" onclick="Optimizer.clearAll()">Tüm En İyi Parametre Cache Değerlerini Sil</button>
         </div>
 
-        <div class="section">
-            <div class="sec-title">Görsel İndikatörler</div>
-            <label>Grafik Altı RSI Periyodu</label>
-            <input type="number" id="vis-rsi-len" value="14">
-        </div>
     </div>
 
     <!-- TAB: BACKTEST (SYSTEM) -->
@@ -398,10 +401,7 @@
                 <span class="legend-label">H:</span><span class="legend-val" id="leg-h">--</span>
                 <span class="legend-label">L:</span><span class="legend-val" id="leg-l">--</span>
                 <span class="legend-label">C:</span><span class="legend-val" id="leg-c">--</span>
-            </div>
-            <div class="legend-row">
-                <span class="legend-label">Vol:</span><span class="legend-val" id="leg-v">--</span>
-                <span class="legend-label" style="margin-left:10px; color:var(--rsi-color)">RSI:</span><span class="legend-val" id="leg-rsi">--</span>
+				<span class="legend-label">Vol:</span><span class="legend-val" id="leg-v">--</span>
             </div>
         </div>
         <div id="chart"></div>
@@ -666,11 +666,21 @@ const AssetManager = {
 /* --- 3. INDICATORS --- */
 const Indicators = {
     ema: (data, period) => {
-        let k = 2 / (period + 1); let r = new Array(data.length).fill(null); let sum = 0;
-        for(let i=0; i<period && i<data.length; i++) sum += data[i].close;
-        if(data.length >= period) { r[period-1] = sum/period; for(let i=period; i<data.length; i++) r[i] = (data[i].close * k) + (r[i-1] * (1-k)); }
-        return r;
-    },
+		if (!data || data.length === 0) return []; // Hata Koruması
+		let k = 2 / (period + 1); 
+		let r = new Array(data.length).fill(null); 
+		let sum = 0;
+		for(let i=0; i<period && i<data.length; i++) {
+			if (data[i]) sum += data[i].close;
+		}
+		if(data.length >= period && data[period-1]) { 
+			r[period-1] = sum/period; 
+			for(let i=period; i<data.length; i++) {
+				r[i] = (data[i].close * k) + (r[i-1] * (1-k));
+			}
+		}
+		return r;
+	},
     sma: (arr, period) => {
         let r = new Array(arr.length).fill(null); let sum = 0;
         for (let i = 0; i < arr.length; i++) { sum += arr[i]; if (i >= period) sum -= arr[i - period]; if (i >= period - 1) r[i] = sum / period; }
@@ -690,7 +700,24 @@ const Indicators = {
     psar:(d,s,i,m)=>{let r=new Array(d.length).fill({}),l=true,a=s,sar=d[0].low,ep=d[0].high;for(let k=1;k<d.length;k++){sar=sar+a*(ep-sar);if(l){if(d[k].low<sar){l=false;sar=ep;ep=d[k].low;a=s}else{if(d[k].high>ep){ep=d[k].high;a=Math.min(a+i,m)}}}else{if(d[k].high>sar){l=true;sar=ep;ep=d[k].high;a=s}else{if(d[k].low<ep){ep=d[k].low;a=Math.min(a+i,m)}}}let sig=null;if(l&&!r[k-1].l)sig='LONG';if(!l&&r[k-1].l)sig='SHORT';r[k]={sar,l,s:sig};}return r;},
     stoch:(d,kP,dP)=>{let r=[],k=[],l=0,h=0;for(let i=0;i<d.length;i++){if(i<kP){r.push({k:50,s:null});continue}let sl=d.slice(i-kP+1,i+1);l=Math.min(...sl.map(x=>x.low));h=Math.max(...sl.map(x=>x.high));k.push(((d[i].close-l)/(h-l))*100);}let dL=[];for(let i=0;i<k.length;i++){if(i<dP){dL.push(50);continue}let s=0;for(let j=0;j<dP;j++)s+=k[i-j];dL.push(s/dP);}return k.map((v,i)=>{let sig=null;if(i>0){if(v>dL[i]&&k[i-1]<=dL[i-1]&&v<20)sig='LONG';if(v<dL[i]&&k[i-1]>=dL[i-1]&&v>80)sig='SHORT'}return{s:sig,k:v};});},
     turtle:(d,e,x)=>{let r=[];for(let i=0;i<d.length;i++){if(i<e){r.push({s:null});continue}let h=Math.max(...d.slice(i-e,i).map(z=>z.high)),l=Math.min(...d.slice(i-e,i).map(z=>z.low));let s=null;if(d[i].close>h)s='LONG';if(d[i].close<l)s='SHORT';r.push({s});}return r;},
-    emaCross:(d,f,s)=>{const ema=(a,p)=>{let r=[],k=2/(p+1),e=a[0].close;a.forEach(z=>{e=z.close*k+e*(1-k);r.push(e)});return r};let ef=ema(d,f),es=ema(d,s);return ef.map((v,i)=>{let sig=null;if(i>0){if(v>es[i]&&ef[i-1]<=es[i-1])sig='LONG';if(v<es[i]&&ef[i-1]>=es[i-1])sig='SHORT'}return{s:sig}})},
+    emaCross:(d,f,s)=>{
+		if (!d || d.length < Math.max(f, s)) return d.map(() => ({s: null})); // Hata Koruması
+		const safeEma=(a,p)=>{
+			if (!a[0]) return new Array(a.length).fill(0);
+			let r=[], k=2/(p+1), e=a[0].close;
+			a.forEach(z=>{ e=z.close*k+e*(1-k); r.push(e); });
+			return r
+		};
+		let ef=safeEma(d,f), es=safeEma(d,s);
+		return ef.map((v,i)=>{
+			let sig=null;
+			if(i>0){
+				if(v>es[i] && ef[i-1]<=es[i-1]) sig='LONG';
+				if(v<es[i] && ef[i-1]>=es[i-1]) sig='SHORT';
+			}
+			return {s:sig}
+		})
+	},
     rsi:(d,p)=>{let r=[],g=0,l=0;for(let i=0;i<d.length;i++){if(i===0){r.push({time:d[i].time,value:50});continue}let c=d[i].close-d[i-1].close;let ug=c>0?c:0,ul=c<0?-c:0;if(i<p){g+=ug;l+=ul;r.push({time:d[i].time,value:50})}else if(i===p){g/=p;l/=p;r.push({time:d[i].time,value:100-(100/(1+g/l))})}else{g=(g*(p-1)+ug)/p;l=(l*(p-1)+ul)/p;r.push({time:d[i].time,value:l===0?100:100-(100/(1+g/l))})}}return r;},
     rsiStrategy:(d, len, overbought, oversold) => {
         let vals = Indicators.rsi(d, len).map(x=>x.value);
@@ -703,9 +730,29 @@ const Indicators = {
         return macdLine.map((v, i) => { let sig = null; if (i > slow + signal) { if (v > sigLine[i] && macdLine[i-1] <= sigLine[i-1]) sig = 'LONG'; if (v < sigLine[i] && macdLine[i-1] >= sigLine[i-1]) sig = 'SHORT'; } return { s: sig }; });
     },
     vwap: (d, period) => {
-        let r = []; for(let i=0; i<d.length; i++) { let start = Math.max(0, i - period + 1); let sumPV = 0; let sumV = 0;
-            for(let j=start; j<=i; j++) { let p = (d[j].high + d[j].low + d[j].close) / 3; sumPV += p * d[j].value; sumV += d[j].value; }
-            let vwap = sumV ? sumPV / sumV : d[i].close; let sig = null; if (i>0) { if(d[i].close > vwap && d[i-1].close <= vwap) sig = 'LONG'; if(d[i].close < vwap && d[i-1].close >= vwap) sig = 'SHORT'; } r.push({s:sig}); } return r;
+        if(!d || d.length === 0) return []; 
+        let r = []; 
+        for(let i=0; i<d.length; i++) { 
+            let start = Math.max(0, i - period + 1); 
+            let sumPV = 0; 
+            let sumV = 0;
+            for(let j=start; j<=i; j++) { 
+                // KRİTİK KONTROL: Veri noktası var mı?
+                if (d[j]) {
+                    let p = (d[j].high + d[j].low + d[j].close) / 3; 
+                    sumPV += p * (d[j].value || 0); 
+                    sumV += (d[j].value || 0); 
+                }
+            }
+            let vwap = sumV ? sumPV / sumV : d[i].close; 
+            let sig = null; 
+            if (i > 0 && d[i-1]) { 
+                if(d[i].close > vwap && d[i-1].close <= vwap) sig = 'LONG'; 
+                if(d[i].close < vwap && d[i-1].close >= vwap) sig = 'SHORT'; 
+            } 
+            r.push({s:sig}); 
+        } 
+        return r;
     },
     adx: (d, len, threshold) => {
         let tr=[], pdm=[], mdm=[]; for(let i=0; i<d.length; i++){ if(i===0) { tr.push(0); pdm.push(0); mdm.push(0); continue; } let h=d[i].high, l=d[i].low, c=d[i].close, pc=d[i-1].close; tr.push(Math.max(h-l, Math.abs(h-pc), Math.abs(l-pc))); let up = h - d[i-1].high; let down = d[i-1].low - l; pdm.push((up > down && up > 0) ? up : 0); mdm.push((down > up && down > 0) ? down : 0); }
@@ -732,6 +779,9 @@ const Indicators = {
 /* --- 4. LOGIC ENGINE --- */
 const Logic={
     backtest:(d,st,p, useTpSl=false, tpPct=0, slPct=0)=>{
+		// EKLENEN SATIR: Veri çok kısaysa işlemi iptal et
+		if (!d || d.length < 50) return {trades:[], markers:[], pnl:0, winRate:0, count:0}; 
+		
         let sigs=[];
         if(st==='supertrend')sigs=Indicators.superTrend(d,p.st_p,p.st_f).map(x=>x.s);
         if(st==='psar')sigs=Indicators.psar(d,p.ps_s,p.ps_i,p.ps_m).map(x=>x.s);
@@ -891,6 +941,7 @@ const Optimizer={
     }
 };
 
+
 /* --- 6. SCANNER ENGINE --- */
 const Scanner={
     results:{},
@@ -982,7 +1033,8 @@ const Scanner={
 
 /* --- 7. APP CONTROLLER --- */
 const App = {
-    chart:null, cSeries:null, vSeries:null, rsiSeries:null, data:[], intervalId:null, currentPrecision:2,
+    chart:null, cSeries:null, vSeries:null, data:[], intervalId:null, currentPrecision:2,
+	hybridConfig: null, // <--- BU SATIRI EKLEYİN (Hibrit ayarlarını burada tutacağız)
     paramsDef:{
         supertrend:[{id:'st_p',l:'Periyot',v:10},{id:'st_f',l:'Faktör',v:3,s:0.1}],
         psar:[{id:'ps_s',l:'Başlangıç',v:0.02,s:0.01},{id:'ps_i',l:'Adım',v:0.02,s:0.01},{id:'ps_m',l:'Max',v:0.2,s:0.01}],
@@ -1089,11 +1141,6 @@ const App = {
             },
         });
 
-        App.rsiSeries=App.chart.addLineSeries({color:'#a371f7',lineWidth:2, priceScaleId: 'rsi'});
-        App.chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0, bottom: 0.75 } });
-        App.rsiSeries.createPriceLine({price:70,color:'#f23645',lineWidth:1,lineStyle:2,axisLabelVisible:false});
-        App.rsiSeries.createPriceLine({price:30,color:'#089981',lineWidth:1,lineStyle:2,axisLabelVisible:false});
-        
         // -- CANDLE STYLING (Standard TradingView Colors) --
         App.cSeries=App.chart.addCandlestickSeries({
             upColor:'#089981', downColor:'#f23645',
@@ -1118,14 +1165,14 @@ const App = {
         // -- CROSSHAIR FORMATTING --
         App.chart.subscribeCrosshairMove(p=>{
             if(!p.time || !App.data.length) return;
-            const c = p.seriesData.get(App.cSeries); const v = p.seriesData.get(App.vSeries); const r = p.seriesData.get(App.rsiSeries);
+            const c = p.seriesData.get(App.cSeries); const v = p.seriesData.get(App.vSeries);
             if(c){ 
                 document.getElementById('leg-o').innerText=App.formatPrice(c.open); 
                 document.getElementById('leg-h').innerText=App.formatPrice(c.high); 
                 document.getElementById('leg-l').innerText=App.formatPrice(c.low); 
                 document.getElementById('leg-c').innerText=App.formatPrice(c.close); 
             }
-            if(v) document.getElementById('leg-v').innerText=v.value.toFixed(2); if(r) document.getElementById('leg-rsi').innerText=r.value.toFixed(2);
+            if(v) document.getElementById('leg-v').innerText=v.value.toFixed(2);
         });
         const bind = (id, evt, fn) => { const el = document.getElementById(id); if(el) el.addEventListener(evt, fn); };
         bind('market', 'change', (e)=>{ 
@@ -1139,13 +1186,15 @@ const App = {
             App.autoRun(); 
         });
         bind('strategy', 'change', ()=>{ App.renderUI(); Optimizer.updateCacheUI(); App.updateHeaders(); App.autoRun(); });
-        bind('symbol', 'change', App.autoRun); bind('interval', 'change', App.autoRun);
+        bind('symbol', 'change', App.autoRun); 
+		bind('interval', 'change', App.autoRun);
+		bind('limit', 'change', App.autoRun); 
         App.loadSyms(); App.renderUI();
         document.getElementById('scan-btn').innerText = `🚀 TÜM PİYASAYI TARA (${ASSETS.CRYPTO.length})`;
         // Yeni hali:
 		setTimeout(() => {
 			App.autoRun();
-		}, 300);
+		}, 150);
     },
     
     setPrecision: (lastPrice) => {
@@ -1265,7 +1314,7 @@ const App = {
     },
     fetchData:async(so)=>{
         const m=App.safeVal('market'), s=so||App.safeVal('symbol'), t=App.safeVal('interval'), l=parseInt(App.safeVal('limit'));
-        const cacheKey = `${s}_${t}`; 
+        const cacheKey = `${s}_${t}_${l}`; 
         const parseInterval = (i) => { const num = parseInt(i); if(i.includes('m')) return num * 60; if(i.includes('h')) return num * 3600; if(i.includes('d')) return num * 86400; return 60; };
         if (m === 'CRYPTO') {
             const cachedWrapper = await CacheDB.get('candles', cacheKey);
@@ -1316,6 +1365,15 @@ const App = {
     run:async(sil=false)=>{
         if(!sil)App.modal(true,'Analiz','Veriler işleniyor...',100);
         const d = App.data; if(!d || !d.length){ if(!sil)App.modal(false); return; }
+        
+        // --- KRİTİK DÜZELTME BAŞLANGICI ---
+        if(App.hybridConfig) {
+            // Eğer hibrit mod aktifse, her güncellemede hibrit hesaplamayı çağır
+            App.runHybrid(App.hybridConfig, true); 
+            if(!sil) App.modal(false);
+            return;
+        }
+        // --- KRİTİK DÜZELTME BİTİŞİ ---
         const s=App.safeVal('strategy'); const p={};
         if(App.paramsDef[s]) App.paramsDef[s].forEach(k=>{const el=document.getElementById(k.id); if(el) p[k.id]=parseFloat(el.value)});
         const useTpSl = document.getElementById('use-tpsl').checked;
@@ -1329,7 +1387,6 @@ const App = {
         }
 
         // İndikatörleri ve Markerları her türlü yenilemek lazım çünkü son mum değişti.
-        App.rsiSeries.setData(Indicators.rsi(d, parseInt(App.safeVal('vis-rsi-len')) || 14));
         App.cSeries.setMarkers(res.markers.map(m => ({...m, text: `${m.text} @ ${m.price ? App.formatPrice(m.price) : ''}`})));
         
         // --- GÜNCELLEME: SON 100 MUM YAKINLAŞTIRMA ---
@@ -1367,6 +1424,382 @@ const App = {
         App.updateHeaders(); if(!sil)App.modal(false);
     }
 };
+
+/* --- HİBRİT SİSTEM EKLENTİLERİ --- */
+
+// 1. App nesnesine gerekli hibrit fonksiyonlarını dışarıdan ekliyoruz
+App.getSignalArray = function(data, strat, params) {
+    if (strat === 'supertrend') return Indicators.superTrend(data, params.st_p, params.st_f).map(x => x.s);
+    if (strat === 'psar') return Indicators.psar(data, params.ps_s, params.ps_i, params.ps_m).map(x => x.s);
+    if (strat === 'stoch') return Indicators.stoch(data, params.st_k, params.st_d).map(x => x.s);
+    if (strat === 'turtle') return Indicators.turtle(data, params.tt_in, params.tt_out).map(x => x.s);
+    if (strat === 'emacross') return Indicators.emaCross(data, params.ema_f, params.ema_s).map(x => x.s);
+    if (strat === 'rsi_strat') return Indicators.rsiStrategy(data, params.rsi_len, params.rsi_ob, params.rsi_os).map(x => x.s);
+    if (strat === 'lsvt') return Indicators.lsvt(data, params.bb_len, params.bb_mult, params.vol_len, params.vol_factor).map(x => x.s);
+    return new Array(data.length).fill(null);
+};
+
+App.runHybrid = function(hybridConfig, sil = false) {
+    // Yapılandırmayı hafızaya al ki canlı veri geldiğinde kaybolmasın
+    App.hybridConfig = hybridConfig; 
+    
+    if(!sil) App.modal(true, "🧬 Hibrit Model", "Sinyaller hesaplanıyor...", 100);
+    
+    const d = App.data;
+    const useTpSl = document.getElementById('use-tpsl').checked;
+    const tp = parseFloat(App.safeVal('tp-val')) || 3;
+    const sl = parseFloat(App.safeVal('sl-val')) || 1.5;
+    const balance = parseFloat(App.safeVal('balance')) || 1000;
+
+    let signalMaps = {};
+    for (let strat in hybridConfig) {
+        signalMaps[strat] = App.getSignalArray(d, strat, hybridConfig[strat].params);
+    }
+
+    let finalTrades = [];
+    let markers = [];
+    let pos = null;
+    let wins = 0;
+
+    for (let i = 1; i < d.length; i++) {
+        let hybridScore = 0;
+        for (let strat in hybridConfig) {
+            let sig = signalMaps[strat][i];
+            let w = hybridConfig[strat].weight;
+            if (sig === 'LONG') hybridScore += w;
+            if (sig === 'SHORT') hybridScore -= w;
+        }
+
+        let finalSig = null;
+ 
+        if (hybridScore >= 0.60) finalSig = 'LONG';
+        else if (hybridScore <= -0.60) finalSig = 'SHORT';
+
+        if (pos) {
+            let current = d[i];
+            let exitPrice = null;
+            let reason = "";
+            if (useTpSl) {
+                if (pos.type === 'LONG') {
+                    if (current.low <= pos.p * (1 - sl/100)) { exitPrice = pos.p * (1 - sl/100); reason = "Stop Loss"; }
+                    else if (current.high >= pos.p * (1 + tp/100)) { exitPrice = pos.p * (1 + tp/100); reason = "Take Profit"; }
+                } else {
+                    if (current.high >= pos.p * (1 + sl/100)) { exitPrice = pos.p * (1 + sl/100); reason = "Stop Loss"; }
+                    else if (current.low <= pos.p * (1 - tp/100)) { exitPrice = pos.p * (1 - tp/100); reason = "Take Profit"; }
+                }
+            }
+            if (!exitPrice && ((pos.type === 'LONG' && finalSig === 'SHORT') || (pos.type === 'SHORT' && finalSig === 'LONG'))) {
+                exitPrice = current.close; reason = "Sinyal Dönüşü";
+            }
+            if (exitPrice) {
+                let pnl = (pos.type === 'LONG' ? exitPrice - pos.p : pos.p - exitPrice) * pos.amt;
+                if (pnl > 0) wins++;
+                finalTrades.push({ type: pos.type, et: pos.t, ep: pos.p, xt: current.time, xp: exitPrice, pnl, reason });
+                
+                // Çıkış İşareti: Kârda ise yeşil, zararda ise kırmızı daire
+                markers.push({ 
+                    time: current.time, 
+                    position: pos.type === 'LONG' ? 'aboveBar' : 'belowBar', 
+                    color: pnl > 0 ? '#089981' : '#f23645', 
+                    shape: 'circle', 
+                    text: `${reason}`, 
+                    price: exitPrice 
+                });
+                pos = null;
+            }
+        }
+        if (!pos && finalSig) {
+            pos = { type: finalSig, p: d[i].close, t: d[i].time, amt: balance / d[i].close };
+            // GİRİŞ OKLARI: LONG = Yeşil (#089981), SHORT = Kırmızı (#f23645)
+            markers.push({ 
+                time: d[i].time, 
+                position: finalSig === 'LONG' ? 'belowBar' : 'aboveBar', 
+                color: finalSig === 'LONG' ? '#089981' : '#f23645', 
+                shape: finalSig === 'LONG' ? 'arrowUp' : 'arrowDown', 
+                text: `HİBRİT ${finalSig}`, 
+                price: d[i].close 
+            });
+        }
+    }
+
+    // Grafiği Güncelle
+    App.cSeries.setMarkers(markers);
+    
+    // İstatistikleri Güncelle
+    let totalPnl = finalTrades.reduce((a, b) => a + b.pnl, 0);
+    document.getElementById('res-bal').innerText = '$' + (balance + totalPnl).toFixed(2);
+    document.getElementById('res-pnl').innerHTML = `<span class="${totalPnl >= 0 ? 'green' : 'red'}">${totalPnl.toFixed(2)}</span>`;
+    document.getElementById('res-win').innerText = '%' + (finalTrades.length ? Math.round((wins / finalTrades.length) * 100) : 0);
+    document.getElementById('res-trades').innerText = finalTrades.length + (pos ? 1 : 0);
+
+    // Alt Durum Çubuğu Düzeltmesi
+    const ab = document.getElementById('trade-status-bar');
+    if(pos) {
+        ab.style.display = 'flex'; 
+        const cur = d[d.length-1].close; 
+        const opnl = (pos.type==='LONG' ? cur-pos.p : pos.p-cur) * pos.amt;
+        
+        const typeBadge = document.getElementById('at-type');
+        typeBadge.innerText = "HİBRİT " + pos.type;
+        // RENK DÜZELTMESİ: SHORT ise b-short (kırmızı), LONG ise b-long (yeşil) sınıfları atanır
+        typeBadge.className = `badge ${pos.type === 'LONG' ? 'b-long' : 'b-short'}`;
+        
+        document.getElementById('at-entry').innerText = pos.p.toFixed(App.currentPrecision);
+        document.getElementById('at-curr').innerText = cur.toFixed(App.currentPrecision);
+        document.getElementById('at-pnl').innerText = `${opnl>=0 ? '+' : ''}${opnl.toFixed(2)} $`;
+        document.getElementById('at-pnl').className = `ts-val ${opnl>=0 ? 'green' : 'red'}`;
+    } else {
+        ab.style.display = 'none';
+    }
+
+    // Geçmiş Tablosu
+    if(!sil) {
+        const tb = document.querySelector('#t-history tbody');
+        if (tb) {
+            tb.innerHTML = '';
+            [...finalTrades].reverse().forEach(t => {
+                tb.innerHTML += `<tr>
+                    <td><span class="badge ${t.type === 'LONG' ? 'b-long' : 'b-short'}">${t.type}</span></td>
+                    <td>${new Date(t.et * 1000).toLocaleString('tr-TR')}</td>
+                    <td>${t.ep.toFixed(App.currentPrecision)}</td>
+                    <td>${new Date(t.xt * 1000).toLocaleString('tr-TR')}</td>
+                    <td>${t.xp.toFixed(App.currentPrecision)}</td>
+                    <td class="${t.pnl >= 0 ? 'green' : 'red'}">${t.pnl.toFixed(2)}</td>
+                    <td style="font-size:0.7rem">${t.reason}</td>
+                </tr>`;
+            });
+        }
+    }
+    
+    if(!sil) App.modal(false);
+};
+
+/* --- PROTRADE AI: DETERMINISTIC NEURAL ENSEMBLE (V24) --- */
+
+const GeneticOptimizer = {
+    settings: {
+        // Analiz edilecek ana havuz
+        strategyPool: ['lsvt', 'supertrend', 'emacross', 'rsi_strat', 'macd', 'adx', 'vwap', 'williams'],
+        minWinRate: 45, // Konseye girmek için minimum başarı %'si
+        topCount: 4     // En iyi kaç algoritma hibrit modele katılsın?
+    },
+
+    evolve: async function() {
+        const d = App.data;
+        if (!d || d.length < 100) return App.toast("Yetersiz veri!", "red");
+
+        App.modal(true, "🧬 Sinir Ağı Eğitiliyor", "Algoritmalar piyasaya göre optimize ediliyor...", 0);
+        
+        let candidates = [];
+        const useTpSl = document.getElementById('use-tpsl').checked;
+
+        // 1. ADIM: EĞİTİM (Tüm stratejiler için en iyi parametreleri bul)
+        for (let i = 0; i < this.settings.strategyPool.length; i++) {
+            const strat = this.settings.strategyPool[i];
+            App.modal(true, `Eğitiliyor: ${strat.toUpperCase()}`, `Matematiksel modeller kuruluyor...`, (i / this.settings.strategyPool.length) * 100);
+            
+            // Deterministik (Brute-force) en iyi ayarı bul
+            const result = await Optimizer.optimizeSymbol(d, strat, useTpSl, null);
+
+            if (result && result.stats.count > 3) { // En az 4 işlem yapmış olmalı
+                // Skorlama: PnL * Başarı Oranı (Kare alınarak başarılı olana daha fazla ağırlık verilir)
+                const winRateFactor = Math.pow(result.stats.winRate / 100, 2);
+                const score = result.stats.pnl * winRateFactor;
+
+                if (score > 0 && result.stats.winRate >= this.settings.minWinRate) {
+                    candidates.push({
+                        strat: strat,
+                        params: result.p,
+                        tp: result.tp,
+                        sl: result.sl,
+                        stats: result.stats,
+                        score: score
+                    });
+                }
+            }
+        }
+
+        // 2. ADIM: ELEME VE KONSEY KURULUMU
+        if (candidates.length === 0) {
+            App.modal(false);
+            return App.toast("Kârlı bir kombinasyon bulunamadı. Periyodu veya mumu değiştirin.", "red");
+        }
+
+        // Skorlara göre sırala ve en iyileri seç
+        candidates.sort((a, b) => b.score - a.score);
+        const winners = candidates.slice(0, this.settings.topCount);
+
+        // Ağırlıkları Normalize Et (Toplamları 1.0 (yani %100) olacak şekilde)
+        const totalScore = winners.reduce((sum, c) => sum + c.score, 0);
+        let ensembleConfig = {};
+        let report = "🎯 Hibrit Model Konseyi Kuruldu:\n";
+
+        winners.forEach(w => {
+            const weight = w.score / totalScore;
+            ensembleConfig[w.strat] = {
+                weight: weight,
+                params: w.params,
+                stats: w.stats
+            };
+            report += `- ${w.strat.toUpperCase()}: %${(weight * 100).toFixed(1)} Etki | WR: %${w.stats.winRate} | PnL: $${w.stats.pnl.toFixed(2)}\n`;
+        });
+
+        // 3. ADIM: SİSTEME ENJEKTE ET
+        // En iyi stratejinin TP/SL değerlerini ana değerler olarak ata
+        if (useTpSl) {
+            document.getElementById('tp-val').value = winners[0].tp;
+            document.getElementById('sl-val').value = winners[0].sl;
+        }
+
+        App.modal(false);
+        console.log("%c" + report, "color: #2f81f7; font-weight: bold;");
+        App.toast("Yapay Zeka Konseyi kuruldu ve sinyaller harmanlandı.", "green");
+
+        // Hibrit çalıştırıcıyı tetikle
+        App.runHybrid(ensembleConfig);
+    }
+};
+
+/* --- HİBRİT ÇALIŞTIRICI (ENDEKS OYLAMA) --- */
+App.runHybrid = function(config, sil = false) {
+    App.hybridConfig = config; // Hafızaya al (canlı veri için)
+    const d = App.data;
+    const balance = parseFloat(App.safeVal('balance')) || 1000;
+    const useTpSl = document.getElementById('use-tpsl').checked;
+    const tp = parseFloat(App.safeVal('tp-val'));
+    const sl = parseFloat(App.safeVal('sl-val'));
+
+    // Her stratejinin sinyal dizisini önceden hesapla (Hız için)
+    let brain = {};
+    for (let s in config) {
+        brain[s] = App.getSignalArray(d, s, config[s].params);
+    }
+
+    let trades = [];
+    let markers = [];
+    let pos = null;
+    let wins = 0;
+
+    for (let i = 2; i < d.length; i++) {
+        let bullPower = 0; // Boğa gücü (0-1 arası)
+        let bearPower = 0; // Ayı gücü (0-1 arası)
+
+        // OYLAMA SİSTEMİ
+        for (let s in config) {
+            const signal = brain[s][i];
+            const weight = config[s].weight;
+            if (signal === 'LONG') bullPower += weight;
+            if (signal === 'SHORT') bearPower += weight;
+        }
+
+        let finalSig = null;
+        // EŞİK DEĞERİ: %55 konsensüs sağlanmalı
+        if (bullPower > 0.55) finalSig = 'LONG';
+        else if (bearPower > 0.55) finalSig = 'SHORT';
+
+        // İşlem Mantığı (Backtest)
+        if (pos) {
+            let cur = d[i];
+            let exitP = null;
+            let reason = "";
+
+            if (useTpSl) {
+                if (pos.type === 'LONG') {
+                    if (cur.low <= pos.p * (1 - sl/100)) { exitP = pos.p * (1 - sl/100); reason = "Stop Loss"; }
+                    else if (cur.high >= pos.p * (1 + tp/100)) { exitP = pos.p * (1 + tp/100); reason = "Take Profit"; }
+                } else {
+                    if (cur.high >= pos.p * (1 + sl/100)) { exitP = pos.p * (1 + sl/100); reason = "Stop Loss"; }
+                    else if (cur.low <= pos.p * (1 - tp/100)) { exitP = pos.p * (1 - tp/100); reason = "Take Profit"; }
+                }
+            }
+
+            // Sinyal tersine döndüyse kapat
+            if (!exitP && ((pos.type === 'LONG' && finalSig === 'SHORT') || (pos.type === 'SHORT' && finalSig === 'LONG'))) {
+                exitP = cur.close;
+                reason = "Konsey Kararı (Ters Sinyal)";
+            }
+
+            if (exitP) {
+                let pnl = (pos.type === 'LONG' ? exitP - pos.p : pos.p - exitP) * pos.amt;
+                if (pnl > 0) wins++;
+                trades.push({ type: pos.type, et: pos.t, ep: pos.p, xt: d[i].time, xp: exitP, pnl, reason });
+                markers.push({ 
+                    time: d[i].time, position: pos.type==='LONG'?'aboveBar':'belowBar', 
+                    color: pnl>0?'#089981':'#f23645', shape: 'circle', text: reason 
+                });
+                pos = null;
+            }
+        }
+
+        if (!pos && finalSig) {
+            pos = { type: finalSig, p: d[i].close, t: d[i].time, amt: balance / d[i].close };
+            markers.push({ 
+                time: d[i].time, position: finalSig==='LONG'?'belowBar':'aboveBar', 
+                color: finalSig==='LONG'?'#089981':'#f23645', shape: finalSig==='LONG'?'arrowUp':'arrowDown', 
+                text: `HİBRİT ${finalSig}`
+            });
+        }
+    }
+
+    // Arayüzü Güncelle
+    App.cSeries.setMarkers(markers);
+    let totalPnl = trades.reduce((a, b) => a + b.pnl, 0);
+    document.getElementById('res-bal').innerText = '$' + (balance + totalPnl).toFixed(2);
+    document.getElementById('res-pnl').innerHTML = `<span class="${totalPnl >= 0 ? 'green' : 'red'}">${totalPnl.toFixed(2)}</span>`;
+    document.getElementById('res-win').innerText = '%' + (trades.length ? Math.round((wins / trades.length) * 100) : 0);
+    document.getElementById('res-trades').innerText = trades.length + (pos ? 1 : 0);
+
+    // Durum Çubuğu ve Tabloyu doldur
+    App.updateHistoryTable(trades);
+    App.updateLiveStatusBar(pos, d[d.length-1].close);
+};
+
+// Yardımcı Fonksiyon: Sinyalleri ham dizi olarak al
+App.getSignalArray = function(data, strat, params) {
+    if (strat === 'lsvt') return Indicators.lsvt(data, params.bb_len, params.bb_mult, params.vol_len, params.vol_factor).map(x => x.s);
+    if (strat === 'supertrend') return Indicators.superTrend(data, params.st_p, params.st_f).map(x => x.s);
+    if (strat === 'emacross') return Indicators.emaCross(data, params.ema_f, params.ema_s).map(x => x.s);
+    if (strat === 'rsi_strat') return Indicators.rsiStrategy(data, params.rsi_len, params.rsi_ob, params.rsi_os).map(x => x.s);
+    if (strat === 'macd') return Indicators.macd(data, params.mac_f, params.mac_s, params.mac_sig).map(x => x.s);
+    if (strat === 'adx') return Indicators.adx(data, params.adx_len, params.adx_th).map(x => x.s);
+    if (strat === 'vwap') return Indicators.vwap(data, params.vw_p).map(x => x.s);
+    if (strat === 'williams') return Indicators.williams(data, params.w_len, params.w_lvl).map(x => x.s);
+    return new Array(data.length).fill(null);
+};
+
+App.updateHistoryTable = function(trades) {
+    const tb = document.querySelector('#t-history tbody');
+    if (!tb) return;
+    tb.innerHTML = '';
+    [...trades].reverse().forEach(t => {
+        tb.innerHTML += `<tr>
+            <td><span class="badge ${t.type === 'LONG' ? 'b-long' : 'b-short'}">${t.type}</span></td>
+            <td>${new Date(t.et * 1000).toLocaleString('tr-TR')}</td>
+            <td>${t.ep.toFixed(App.currentPrecision)}</td>
+            <td>${new Date(t.xt * 1000).toLocaleString('tr-TR')}</td>
+            <td>${t.xp.toFixed(App.currentPrecision)}</td>
+            <td class="${t.pnl >= 0 ? 'green' : 'red'}">${t.pnl.toFixed(2)}</td>
+            <td style="font-size:0.75rem; color:#848d97">${t.reason}</td>
+        </tr>`;
+    });
+};
+
+App.updateLiveStatusBar = function(pos, currentPrice) {
+    const bar = document.getElementById('trade-status-bar');
+    if (pos) {
+        bar.style.display = 'flex';
+        const pnl = (pos.type === 'LONG' ? currentPrice - pos.p : pos.p - currentPrice) * pos.amt;
+        document.getElementById('at-type').innerText = "HİBRİT " + pos.type;
+        document.getElementById('at-type').className = `badge ${pos.type==='LONG'?'b-long':'b-short'}`;
+        document.getElementById('at-entry').innerText = pos.p.toFixed(App.currentPrecision);
+        document.getElementById('at-curr').innerText = currentPrice.toFixed(App.currentPrecision);
+        document.getElementById('at-pnl').innerText = `${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} $`;
+        document.getElementById('at-pnl').className = `ts-val ${pnl >= 0 ? 'green' : 'red'}`;
+    } else {
+        bar.style.display = 'none';
+    }
+};
+
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', App.init); else App.init();
 </script>
 </body>
