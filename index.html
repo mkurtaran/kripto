@@ -1009,16 +1009,21 @@ const App = {
     },
 	// Akıllı ve Responsive Yakınlaştırma Fonksiyonu
     applySmartZoom: () => {
-        if (!App.data || App.data.length === 0) return;
-    
-		const chartWidth = document.getElementById('chart').clientWidth;
+        const chartEl = document.getElementById('chart');
+		if (!App.data || App.data.length === 0 || !chartEl) return;
+
+		// --- SAFARI FIX: Zoom öncesi boyutları zorla yenile ---
+		App.chart.resize(chartEl.clientWidth, chartEl.clientHeight);
+		
+		const chartWidth = chartEl.clientWidth;
 		const totalBars = App.data.length;
 
-		// iPhone 14 Pro Max gibi dar ekranlarda ~100 mum, 
-		// Geniş ekranlarda (Genişlik / 8) kadar mum gösterir.
-		let barsToShow = Math.max(100, Math.floor(chartWidth / 8));
+		// Ekran genişliği henüz tam hesaplanamadıysa (Safari hatası) 
+		// pencere genişliğini baz al
+		const effectiveWidth = chartWidth > 0 ? chartWidth : window.innerWidth;
+
+		let barsToShow = Math.max(100, Math.floor(effectiveWidth / 8));
 		
-		// Veri seti yeterliyse son kısma odaklan
 		if (totalBars > barsToShow) {
 			App.chart.timeScale().setVisibleLogicalRange({
 				from: totalBars - barsToShow,
@@ -1129,7 +1134,10 @@ const App = {
         bind('symbol', 'change', App.autoRun); bind('interval', 'change', App.autoRun);
         App.loadSyms(); App.renderUI();
         document.getElementById('scan-btn').innerText = `🚀 TÜM PİYASAYI TARA (${ASSETS.CRYPTO.length})`;
-        App.autoRun();
+        // Yeni hali:
+		setTimeout(() => {
+			App.autoRun();
+		}, 300);
     },
     
     setPrecision: (lastPrice) => {
@@ -1208,7 +1216,10 @@ const App = {
         App.cSeries.setData(d);
         App.vSeries.setData(d.map(x=>({time:x.time, value:x.value, color:x.color})));
         // --- DÜZELTME: fitContent() yerine Akıllı Zoom ---
-        App.applySmartZoom(); 
+		setTimeout(() => {
+			App.applySmartZoom(); 
+		}, 150);
+		
 
         // ** YENİ EKLENEN KISIM: Socket'i HEMEN başlat (Optimizasyonu bekleme) **
         if(App.safeVal('market') === 'CRYPTO') {
