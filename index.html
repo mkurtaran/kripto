@@ -20,13 +20,8 @@
         }
 
         * { box-sizing: border-box; outline: none; }
-        /* Safari ve iOS için tam ekran yüksekliği */
-		body {
-			height: 100dvh; 
-			margin: 0;
-			padding: 0;
-			overflow: hidden;
-		}
+        body { margin: 0; background: var(--bg-dark); color: var(--text-main); font-family: var(--font); height: 100vh; display: flex; overflow: hidden; font-size: 13px; }
+
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg-dark); }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
