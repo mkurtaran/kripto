@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ProTrade AI V23 - Update Crypto List</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <style>
@@ -149,30 +149,27 @@
 		}
         @media (min-width: 1025px) { #mobile-header { display: none; } }
 		
-		/* iPhone ve Modern Cihazlar için Üst Boşluk Düzeltmesi */
-		#mobile-header { 
-			display: flex; 
-			align-items: center; 
-			justify-content: space-between; 
-			background: #0d1117; 
+		/* Mobil Üst Bar (Dinamik Ada Düzeltmesi) */
+		#mobile-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			background: #0d1117;
 			border-bottom: 1px solid var(--border);
-			/* iPhone Safe Area Düzeltmesi */
-			padding: calc(env(safe-area-inset-top) + 10px) 15px 10px 15px !important;
-			height: auto !important;
+			/* Üstten boşluğu cihazın güvenli alanına göre ayarlar */
+			padding-top: env(safe-area-inset-top) !important;
+			/* Yüksekliği güvenli alan + 50px olarak sabitler */
+			height: calc(60px + env(safe-area-inset-top)) !important;
+			z-index: 1000;
 		}
 
-		aside .header { 
-			position: relative; 
-			border-bottom: 1px solid var(--border); 
-			font-weight: 700; 
-			font-size: 1.2rem; 
-			display: flex; 
-			align-items: center; 
-			justify-content: space-between; 
-			color: var(--text-main); 
+		/* Kenar Menü Başlığı (Menü açıkken Dinamik Ada düzeltmesi) */
+		aside .header {
+			padding-top: env(safe-area-inset-top) !important;
+			height: calc(60px + env(safe-area-inset-top)) !important;
+			display: flex;
+			align-items: center;
 			background: #0d1117;
-			/* iPhone Safe Area Düzeltmesi */
-			padding: calc(env(safe-area-inset-top) + 15px) 15px 15px 15px !important;
 		}
 
 		/* Grafik alanının tepeden basık olmaması için */
