@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ProTrade AI V23 - Update Crypto List</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <style>
@@ -20,8 +20,13 @@
         }
 
         * { box-sizing: border-box; outline: none; }
-        body { margin: 0; background: var(--bg-dark); color: var(--text-main); font-family: var(--font); height: 100vh; display: flex; overflow: hidden; font-size: 13px; }
-
+        /* Safari ve iOS için tam ekran yüksekliği */
+		body {
+			height: 100dvh; 
+			margin: 0;
+			padding: 0;
+			overflow: hidden;
+		}
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg-dark); }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -149,35 +154,41 @@
 		}
         @media (min-width: 1025px) { #mobile-header { display: none; } }
 		
-		/* Mobil Üst Bar - Dinamik Ada Desteği */
+		/* Dinamik Ada Uyumlu Üst Bar */
 		#mobile-header {
-			display: flex !important;
-			align-items: center; 
-			justify-content: space-between;
-			background: #0d1117;
-			border-bottom: 1px solid var(--border);
-			/* İçeriği Dinamik Ada'nın TAMAMEN altına iter */
-			padding-top: env(safe-area-inset-top) !important; 
-			height: 50px; /* İçerik yüksekliği */
-			box-sizing: content-box; /* Padding'i yüksekliğe ekler */
-			z-index: 1000;
-		}
-
-		/* Kenar Menü Açıldığında Üst Kısım */
-		aside .header {
 			display: flex !important;
 			align-items: center;
 			justify-content: space-between;
+			background: #0d1117;
+			border-bottom: 1px solid var(--border);
+			/* Üstten boşluğu Dinamik Ada'ya göre otomatik ayarlar */
+			padding-top: env(safe-area-inset-top) !important;
+			height: 50px; /* İçerik yüksekliği sabit */
+			box-sizing: content-box; /* Padding'i yüksekliğe ekler */
+			z-index: 9999;
+		}
+
+		/* Sidebar Başlığı (Menü açıldığında ada altında kalmaması için) */
+		aside .header {
 			padding-top: env(safe-area-inset-top) !important;
 			height: 50px;
 			box-sizing: content-box;
-			background: #0d1117;
+			display: flex !important;
+			align-items: center;
 		}
 
-		/* Grafik alanının tepeden basık olmaması için */
+		/* Menü Butonu */
+		#mobile-menu-btn {
+			font-size: 24px;
+			padding: 10px;
+			line-height: 1;
+		}
+
+		/* Ana İçerik Alanı */
 		main {
-			height: 100vh;
-			padding-bottom: env(safe-area-inset-bottom);
+			height: 100dvh;
+			display: flex;
+			flex-direction: column;
 		}
     </style>
 </head>
@@ -1004,21 +1015,23 @@ const App = {
 	// Akıllı ve Responsive Yakınlaştırma Fonksiyonu
     applySmartZoom: () => {
         if (!App.data || App.data.length === 0) return;
-        
-        const chartWidth = document.getElementById('chart').clientWidth;
-        const totalBars = App.data.length;
+    
+		const chartWidth = document.getElementById('chart').clientWidth;
+		const totalBars = App.data.length;
 
-        // Mobil için en az 100 mum, masaüstü için ekran genişliğine göre (Genişlik / 8)
-        let barsToShow = Math.max(100, Math.floor(chartWidth / 8));
-        
-        if (totalBars > barsToShow) {
-            App.chart.timeScale().setVisibleLogicalRange({
-                from: totalBars - barsToShow,
-                to: totalBars
-            });
-        } else {
-            App.chart.timeScale().fitContent();
-        }
+		// iPhone 14 Pro Max gibi dar ekranlarda ~100 mum, 
+		// Geniş ekranlarda (Genişlik / 8) kadar mum gösterir.
+		let barsToShow = Math.max(100, Math.floor(chartWidth / 8));
+		
+		// Veri seti yeterliyse son kısma odaklan
+		if (totalBars > barsToShow) {
+			App.chart.timeScale().setVisibleLogicalRange({
+				from: totalBars - barsToShow,
+				to: totalBars
+			});
+		} else {
+			App.chart.timeScale().fitContent();
+		}
     },
     init: async ()=>{
         // 1. Check Version & Init DB
