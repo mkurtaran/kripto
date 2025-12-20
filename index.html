@@ -989,7 +989,7 @@ const Scanner={
     },
     renderResults:()=>{
         const tb=document.querySelector('#t-scanner tbody'); if(!tb) return; tb.innerHTML='';
-        const keys=Object.keys(Scanner.results).sort((a,b)=>Scanner.results[b].pnl - Scanner.results[a].pnl);
+        const keys=Object.keys(Scanner.results).sort((a,b)=>Scanner.results[b].lastEntryTime - Scanner.results[a].lastEntryTime);
         keys.forEach(k=>{
             const r=Scanner.results[k];
             let st=r.openPos ? `<span class="badge ${r.openPos.type==='LONG'?'b-long':'b-short'}">AÇIK: ${r.openPos.type}</span>` : (r.lastSignal ? `<span class="badge ${r.lastSignal==='LONG'?'b-long':'b-short'}">Sinyal: ${r.lastSignal}</span>` : `<span class="badge b-neutral">Beklemede</span>`);
